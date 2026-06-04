@@ -1,7 +1,16 @@
 import html
 import hashlib
 import os
+import shutil
 import tempfile
+
+# Set BROWSER_PATH for Kaleido/Plotly static image export on headless environments (like Hugging Face Spaces)
+if "BROWSER_PATH" not in os.environ:
+    for browser_bin in ["chromium", "chromium-browser", "google-chrome", "google-chrome-stable"]:
+        browser_path = shutil.which(browser_bin)
+        if browser_path:
+            os.environ["BROWSER_PATH"] = browser_path
+            break
 from dataclasses import dataclass
 from typing import Any
 
@@ -1059,7 +1068,7 @@ def build_chart_catalog(df):
                     orientation="h",
                     color="count",
                     color_continuous_scale=["#fff7ed", AMBER],
-                    title=f"Average {me tric} by {selected_cat}",
+                    title=f"Average {metric} by {selected_cat}",
                 )
                 fig.update_layout(coloraxis_colorbar_title="Records")
                 add_chart(
