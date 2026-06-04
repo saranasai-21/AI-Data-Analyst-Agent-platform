@@ -39,8 +39,6 @@ SESSION_DEFAULTS = {
     "latest_result": None,
     "selected_chart_keys": [],
     "report_path": None,
-    "pdf_report_path": None,
-    "chat_pdf_path": None,
     "chart_export_warning": False,
     "chart_cache_key": None,
     "chart_cache": [],
@@ -51,29 +49,18 @@ for key, value in SESSION_DEFAULTS.items():
     if key not in st.session_state:
         st.session_state[key] = value
 
-INK = "#f3f4f6"
-MUTED = "#9ca3af"
-PANEL = "#111827"
-CANVAS = "#080c14"
-BORDER = "#1f2937"
-BLUE = "#6366f1"
-TEAL = "#06b6d4"
-AMBER = "#f59e0b"
-GREEN = "#10b981"
-RED = "#ef4444"
-VIOLET = "#8b5cf6"
-SHELL_BG = "linear-gradient(135deg, #1e1b4b 0%, #080c14 100%)"
-SHELL_BORDER = "rgba(99, 102, 241, 0.25)"
-SHELL_SHADOW = "rgba(0, 0, 0, 0.5)"
-GLASS_BG = "rgba(30, 41, 59, 0.45)"
-GLASS_SHADOW = "rgba(0, 0, 0, 0.2)"
-FILE_DROP_BG = "rgba(17, 24, 39, 0.6)"
-CHAT_INPUT_BG = "rgba(8, 12, 20, 0.95)"
-TEXTAREA_BG = "rgba(30, 41, 59, 0.7)"
-PLOTLY_TEMPLATE = "plotly_dark"
-CODE_BG = "#0d1117"
-CODE_COLOR = "#e6edf3"
-SHADOW = "0 8px 30px rgba(0, 0, 0, 0.3)"
+
+INK = "#20212b"
+MUTED = "#646b7c"
+PANEL = "#ffffff"
+CANVAS = "#f6f7fb"
+BORDER = "#dbe2ea"
+BLUE = "#2563eb"
+TEAL = "#0f766e"
+AMBER = "#b7791f"
+GREEN = "#1f7a4d"
+RED = "#b42318"
+VIOLET = "#6d4aff"
 
 CHART_COLORS = [BLUE, TEAL, AMBER, GREEN, RED, VIOLET, "#0891b2", "#c2410c"]
 
@@ -92,8 +79,6 @@ class ChartSpec:
 st.markdown(
     f"""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
-
     :root {{
         --ink: {INK};
         --muted: {MUTED};
@@ -105,9 +90,6 @@ st.markdown(
         --amber: {AMBER};
         --green: {GREEN};
         --red: {RED};
-        --code-bg: {CODE_BG};
-        --code-color: {CODE_COLOR};
-        --shadow: {SHADOW};
     }}
 
     .stApp {{
@@ -129,17 +111,17 @@ st.markdown(
 
     h1, h2, h3, h4, h5, h6, p, label, span, div {{
         color: var(--ink);
-        font-family: "Plus Jakarta Sans", "Inter", -apple-system, sans-serif;
+        font-family: "Inter", "Segoe UI", Arial, sans-serif;
         letter-spacing: 0;
     }}
 
     .app-shell {{
-        background: {SHELL_BG};
-        border: 1px solid {SHELL_BORDER};
-        border-radius: 12px;
-        padding: 1.5rem 1.5rem;
-        margin-bottom: 1.5rem;
-        box-shadow: 0 12px 40px {SHELL_SHADOW}, inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1.15rem 1.2rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 12px 30px rgba(32, 33, 43, 0.06);
     }}
 
     .app-header {{
@@ -189,19 +171,8 @@ st.markdown(
     .metric-tile,
     .status-tile {{
         border: 1px solid var(--border);
-        border-radius: 12px;
-        background: {GLASS_BG};
-        backdrop-filter: blur(16px);
-        box-shadow: 0 8px 32px 0 {GLASS_SHADOW};
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }}
-
-    .header-chip:hover,
-    .metric-tile:hover,
-    .status-tile:hover {{
-        transform: translateY(-2px);
-        border-color: rgba(99, 102, 241, 0.35);
-        box-shadow: 0 12px 30px rgba(99, 102, 241, 0.1);
+        border-radius: 8px;
+        background: #fbfcff;
     }}
 
     .header-chip {{
@@ -304,41 +275,33 @@ st.markdown(
     }}
 
     .empty-note {{
-        background: rgba(99, 102, 241, 0.05) !important;
-        border: 1px solid rgba(99, 102, 241, 0.2) !important;
-        border-radius: 12px !important;
-        padding: 1.2rem !important;
-        color: var(--muted) !important;
-        line-height: 1.5 !important;
+        background: #fffaf0;
+        border: 1px solid #f0d197;
+        border-radius: 8px;
+        padding: 0.9rem;
+        color: #7a4d00;
+        line-height: 1.45;
     }}
 
     [data-testid="stTabs"] [role="tablist"] {{
-        gap: 0.5rem;
-        border-bottom: 1px solid var(--border) !important;
-        padding: 0.2rem 0;
+        gap: 0.35rem;
+        border-bottom: 1px solid var(--border);
     }}
 
     [data-testid="stTabs"] [role="tab"] {{
-        border-radius: 8px !important;
-        color: var(--muted) !important;
-        font-weight: 600 !important;
-        padding: 0.5rem 1.1rem !important;
-        border: 1px solid transparent !important;
-        transition: all 0.2s ease !important;
-    }}
-
-    [data-testid="stTabs"] [role="tab"]:hover {{
-        color: var(--blue) !important;
-        background: rgba(99, 102, 241, 0.05) !important;
+        border-radius: 8px 8px 0 0;
+        color: var(--muted);
+        font-weight: 750;
+        padding: 0.65rem 0.9rem;
     }}
 
     [data-testid="stTabs"] [aria-selected="true"] {{
-        background: rgba(99, 102, 241, 0.1) !important;
-        color: var(--blue) !important;
-        border: 1px solid rgba(99, 102, 241, 0.2) !important;
+        background: var(--panel);
+        color: var(--blue);
     }}
 
     [data-testid="stMetric"],
+    [data-testid="stFileUploader"],
     [data-testid="stDataFrame"],
     [data-testid="stImage"],
     [data-testid="stExpander"],
@@ -346,64 +309,41 @@ st.markdown(
     [data-testid="stChatMessage"],
     [data-baseweb="select"],
     .stTextArea textarea {{
-        background: var(--panel) !important;
-        border: 1px solid var(--border) !important;
-        border-radius: 12px !important;
-        box-shadow: var(--shadow) !important;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        box-shadow: 0 8px 20px rgba(32, 33, 43, 0.04);
     }}
 
     [data-testid="stFileUploader"] {{
-        padding: 1.25rem;
-        background: rgba(30, 41, 59, 0.3) !important;
-        border: 1px solid var(--border) !important;
-        border-radius: 12px !important;
+        padding: 1rem;
     }}
 
     [data-testid="stFileUploaderDropzone"] {{
-        border: 2px dashed rgba(99, 102, 241, 0.3) !important;
-        border-radius: 10px !important;
-        background: {FILE_DROP_BG} !important;
-        color: var(--ink) !important;
-        padding: 1.5rem 1rem !important;
-        transition: all 0.25s ease !important;
-    }}
-
-    [data-testid="stFileUploaderDropzone"]:hover {{
-        border-color: var(--blue) !important;
-        background: rgba(99, 102, 241, 0.05) !important;
+        border: 1px dashed #9aa7b7;
+        border-radius: 8px;
+        background: #ffffff;
+        color: var(--ink);
     }}
 
     [data-testid="stFileUploader"] label,
     [data-testid="stFileUploader"] p,
-    [data-testid="stFileUploader"] small {{
-        color: var(--muted) !important;
-    }}
-
+    [data-testid="stFileUploader"] span,
+    [data-testid="stFileUploader"] small,
     [data-testid="stFileUploaderDropzone"] div {{
         color: var(--ink) !important;
     }}
 
-    [data-testid="stFileUploaderDropzone"] button,
-    [data-testid="stFileUploaderDropzone"] [data-testid="stBaseButton-secondary"] {{
-        background: linear-gradient(135deg, var(--blue) 0%, #4f46e5 100%) !important;
+    [data-testid="stFileUploaderDropzone"] button {{
+        background: var(--blue) !important;
         border: 1px solid var(--blue) !important;
         color: white !important;
         border-radius: 8px !important;
-        font-weight: 600 !important;
-        box-shadow: 0 4px 10px rgba(99, 102, 241, 0.2) !important;
-        padding: 0.45rem 1rem !important;
-        transition: all 0.2s ease !important;
-    }}
-
-    [data-testid="stFileUploaderDropzone"] button:hover,
-    [data-testid="stFileUploaderDropzone"] [data-testid="stBaseButton-secondary"]:hover {{
-        background: linear-gradient(135deg, #4f46e5 0%, #8b5cf6 100%) !important;
-        border-color: #8b5cf6 !important;
-        box-shadow: 0 6px 12px rgba(139, 92, 246, 0.3) !important;
+        font-weight: 750 !important;
     }}
 
     [data-testid="stFileUploaderDropzone"] button *,
-    [data-testid="stFileUploaderDropzone"] [data-testid="stBaseButton-secondary"] * {{
+    [data-testid="stFileUploaderDropzone"] button svg {{
         color: white !important;
         fill: white !important;
         stroke: white !important;
@@ -411,133 +351,64 @@ st.markdown(
 
     .stButton>button,
     .stDownloadButton>button {{
-        border-radius: 10px;
+        border-radius: 8px;
         border: 1px solid var(--blue);
-        background: linear-gradient(135deg, var(--blue) 0%, #4f46e5 100%);
-        color: white !important;
-        font-weight: 600;
-        font-family: "Plus Jakarta Sans", sans-serif;
-        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
-        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        background: var(--blue);
+        color: white;
+        font-weight: 750;
+        box-shadow: none;
     }}
 
     .stButton>button:hover,
     .stDownloadButton>button:hover {{
-        transform: translateY(-1px);
-        border-color: #8b5cf6;
-        background: linear-gradient(135deg, #4f46e5 0%, #8b5cf6 100%);
-        color: white !important;
-        box-shadow: 0 6px 16px rgba(139, 92, 246, 0.4);
+        border-color: #1d4ed8;
+        background: #1d4ed8;
+        color: white;
     }}
 
     .secondary-action button {{
         border-color: var(--border) !important;
-        background: rgba(30, 41, 59, 0.6) !important;
+        background: white !important;
         color: var(--ink) !important;
     }}
 
     [data-testid="stChatInput"] {{
-        border-top: 1px solid var(--border) !important;
-        background: {CHAT_INPUT_BG} !important;
+        border-top: 1px solid var(--border);
+        background: rgba(246, 247, 251, 0.95);
     }}
 
     [data-testid="stChatInput"] textarea {{
-        background: {TEXTAREA_BG} !important;
+        background: white !important;
         color: var(--ink) !important;
-        border: 1px solid var(--border) !important;
         border-radius: 8px !important;
         caret-color: var(--blue) !important;
     }}
 
     .readable-output {{
-        background: rgba(30, 41, 59, 0.3) !important;
-        border: 1px solid var(--border) !important;
-        border-radius: 12px !important;
-        padding: 1.2rem !important;
-        color: var(--ink) !important;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0.95rem;
+        color: var(--ink);
         white-space: pre-wrap;
         overflow-wrap: anywhere;
-        line-height: 1.6;
+        line-height: 1.55;
     }}
 
     pre, code {{
-        background: var(--code-bg) !important;
-        color: var(--code-color) !important;
-        border: 1px solid var(--border) !important;
-        border-radius: 8px !important;
+        background: #fbfcff !important;
+        color: var(--ink) !important;
+        border: 1px solid var(--border);
+        border-radius: 8px;
     }}
 
     .stPlotlyChart {{
-        background: var(--panel) !important;
-        border: 1px solid var(--border) !important;
-        border-radius: 12px !important;
-        padding: 0.75rem !important;
-        box-shadow: var(--shadow) !important;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0.55rem;
+        box-shadow: 0 8px 20px rgba(32, 33, 43, 0.04);
     }}
-
-    /* Table Styling for Markdown Outputs */
-    table {{
-        border-collapse: collapse !important;
-        width: 100% !important;
-        margin: 1rem 0 !important;
-        background-color: var(--panel) !important;
-        color: var(--ink) !important;
-        border-radius: 8px !important;
-        overflow: hidden !important;
-        border: 1px solid var(--border) !important;
-    }}
-    th {{
-        background-color: var(--blue) !important;
-        color: white !important;
-        font-weight: 700 !important;
-        text-align: left !important;
-        padding: 0.65rem 0.95rem !important;
-        border: 1px solid var(--border) !important;
-    }}
-    td {{
-        padding: 0.55rem 0.95rem !important;
-        border: 1px solid var(--border) !important;
-        background-color: var(--panel) !important;
-        color: var(--ink) !important;
-    }}
-    tr:nth-child(even) td {{
-        background-color: var(--canvas) !important;
-    }}
-
-    /* Dropdown Portal Styling for Light/Dark Mode compatibility */
-    div[data-baseweb="popover"] {{
-        z-index: 9999999 !important;
-    }}
-    div[data-baseweb="popover"] ul {{
-        background-color: var(--panel) !important;
-        color: var(--ink) !important;
-        border: 1px solid var(--border) !important;
-    }}
-    div[data-baseweb="popover"] li {{
-        color: var(--ink) !important;
-        background-color: transparent !important;
-        transition: background-color 0.15s ease !important;
-    }}
-    div[data-baseweb="popover"] li:hover {{
-        background-color: rgba(99, 102, 241, 0.12) !important;
-        color: var(--blue) !important;
-    }}
-
-    /* Text overrides inside select elements */
-    [data-baseweb="select"] * {{
-        color: var(--ink) !important;
-    }}
-    /* Chips (multi-select tags) text contrast */
-    div[data-baseweb="tag"] {{
-        background-color: var(--blue) !important;
-        color: white !important;
-        border-radius: 6px !important;
-    }}
-    div[data-baseweb="tag"] * {{
-        color: white !important;
-        fill: white !important;
-    }}
-
 
     hr {{
         border-color: var(--border);
@@ -561,7 +432,6 @@ st.markdown(
 """,
     unsafe_allow_html=True,
 )
-
 
 
 def escape(value):
@@ -681,8 +551,6 @@ def uploaded_source(uploaded_file):
         return "Excel"
     if ext == ".json":
         return "JSON"
-    if ext == ".pdf":
-        return "PDF"
 
     return "Unknown"
 
@@ -694,7 +562,6 @@ def working_dataframe(df):
 
 
 def reset_workspace():
-    st.session_state.analyst_session = None
     st.session_state.df = None
     st.session_state.file_name = None
     st.session_state.data_source = None
@@ -958,70 +825,18 @@ def strongest_corr_pair(df, numeric_cols):
 
 
 def style_chart(fig):
-    # Detect if the figure is a scatter matrix (splom)
-    is_splom = False
-    try:
-        is_splom = any(d.type == "splom" for d in fig.data)
-    except Exception:
-        pass
-
-    grid_color = "rgba(255, 255, 255, 0.08)"
-    line_color = "rgba(255, 255, 255, 0.15)"
-
     fig.update_layout(
-        template=PLOTLY_TEMPLATE,
+        template="plotly_white",
         colorway=CHART_COLORS,
-        # Set font family globally, but color specifically to let Plotly automatically contrast heatmap cell values
-        font=dict(family="Plus Jakarta Sans, Inter, Segoe UI, sans-serif", size=13),
-        title_font=dict(color=INK, size=18, family="Plus Jakarta Sans, Inter, Segoe UI, sans-serif"),
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        margin=dict(l=58, r=30, t=58, b=78),
-        legend=dict(
-            orientation="h",
-            yanchor="top",
-            y=-0.18,
-            xanchor="left",
-            x=0,
-            font=dict(color=INK, size=11),
-        ),
+        font=dict(color=INK, family="Inter, Segoe UI, Arial", size=13),
+        title_font=dict(color=INK, size=18),
+        paper_bgcolor="#ffffff",
+        plot_bgcolor="#ffffff",
+        margin=dict(l=58, r=30, t=58, b=58),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
     )
-    
-    if is_splom:
-        fig.update_layout(height=950)
-        fig.update_xaxes(
-            color=INK,
-            gridcolor=grid_color,
-            zerolinecolor=line_color,
-            linecolor=line_color,
-            title_font=dict(color=INK, size=9),
-            tickfont=dict(color=MUTED, size=8),
-        )
-        fig.update_yaxes(
-            color=INK,
-            gridcolor=grid_color,
-            zerolinecolor=line_color,
-            linecolor=line_color,
-            title_font=dict(color=INK, size=9),
-            tickfont=dict(color=MUTED, size=8),
-        )
-    else:
-        fig.update_xaxes(
-            color=INK,
-            gridcolor=grid_color,
-            zerolinecolor=line_color,
-            linecolor=line_color,
-            title_font=dict(color=INK, size=12),
-            tickfont=dict(color=MUTED, size=11),
-        )
-        fig.update_yaxes(
-            color=INK,
-            gridcolor=grid_color,
-            zerolinecolor=line_color,
-            linecolor=line_color,
-            title_font=dict(color=INK, size=12),
-            tickfont=dict(color=MUTED, size=11),
-        )
+    fig.update_xaxes(color=INK, gridcolor="#e8edf3", zerolinecolor="#cfd7e3", linecolor="#cfd7e3")
+    fig.update_yaxes(color=INK, gridcolor="#e8edf3", zerolinecolor="#cfd7e3", linecolor="#cfd7e3")
     return fig
 
 
@@ -1083,7 +898,7 @@ def build_chart_catalog(df):
             y="Column",
             orientation="h",
             color="Missing rate",
-            color_continuous_scale=["#1e1b4b", RED],
+            color_continuous_scale=["#dbeafe", RED],
             title="Missing Values by Column",
         )
         add_chart(
@@ -1205,7 +1020,7 @@ def build_chart_catalog(df):
             orientation="h",
             title=f"Top Segments in {cat}",
             color="Records",
-            color_continuous_scale=["#064e3b", TEAL],
+            color_continuous_scale=["#d1fae5", TEAL],
         )
         add_chart(
             charts,
@@ -1243,8 +1058,8 @@ def build_chart_catalog(df):
                     y=selected_cat,
                     orientation="h",
                     color="count",
-                    color_continuous_scale=["#451a03", AMBER],
-                    title=f"Average {metric} by {selected_cat}",
+                    color_continuous_scale=["#fff7ed", AMBER],
+                    title=f"Average {me tric} by {selected_cat}",
                 )
                 fig.update_layout(coloraxis_colorbar_title="Records")
                 add_chart(
@@ -1345,7 +1160,7 @@ def build_chart_catalog(df):
                 x="Parameter",
                 y="IQR",
                 color="Median",
-                color_continuous_scale=["#2e1065", VIOLET],
+                color_continuous_scale=["#eef2ff", VIOLET],
                 title="Most Variable Numeric Parameters",
             )
             add_chart(
@@ -1439,66 +1254,16 @@ def render_readable_value(value):
         )
 
 
-def dict_to_markdown_table(d):
-    try:
-        outer_keys = list(d.keys())
-        if not isinstance(d[outer_keys[0]], dict):
-            return None
-        inner_keys = list(d[outer_keys[0]].keys())
-        
-        markdown = "| Metric | " + " | ".join(outer_keys) + " |\n"
-        markdown += "| :--- | " + " | ".join([":---:" for _ in outer_keys]) + " |\n"
-        
-        for k in inner_keys:
-            row = [f"**{k}**"]
-            for col in outer_keys:
-                val = d[col].get(k, "")
-                if isinstance(val, float):
-                    row.append(f"{val:,.2f}")
-                else:
-                    row.append(str(val))
-            markdown += "| " + " | ".join(row) + " |\n"
-        return markdown
-    except Exception:
-        return None
-
-
 def format_agent_value(value):
     if value is None:
         return None
-    if isinstance(value, pd.DataFrame):
-        try:
-            return value.head(12).to_markdown()
-        except Exception:
-            df_temp = value.head(12)
-            cols = list(df_temp.columns)
-            markdown = "| " + " | ".join(map(str, cols)) + " |\n"
-            markdown += "| " + " | ".join([":---:" for _ in cols]) + " |\n"
-            for _, row in df_temp.iterrows():
-                markdown += "| " + " | ".join([f"{val:,.2f}" if isinstance(val, float) else str(val) for val in row]) + " |\n"
-            return markdown
     if isinstance(value, pd.Series):
         try:
-            return value.to_markdown()
+            return value.to_list()
         except Exception:
-            df_temp = value.reset_index()
-            cols = list(df_temp.columns)
-            markdown = "| " + " | ".join(map(str, cols)) + " |\n"
-            markdown += "| " + " | ".join([":---:" for _ in cols]) + " |\n"
-            for _, row in df_temp.iterrows():
-                markdown += "| " + " | ".join([f"{val:,.2f}" if isinstance(val, float) else str(val) for val in row]) + " |\n"
-            return markdown
-    if isinstance(value, dict):
-        tbl = dict_to_markdown_table(value)
-        if tbl:
-            return tbl
-        try:
-            items = []
-            for k, v in value.items():
-                items.append(f"- **{k}**: {v}")
-            return "\n".join(items)
-        except Exception:
-            pass
+            return str(value)
+    if isinstance(value, pd.DataFrame):
+        return value.head(12).to_dict()
     return str(value)
 
 
@@ -1518,66 +1283,56 @@ def run_agent_workflow(query, df):
         ),
     )
 
+    conv.append({"role": "user", "content": query})
+    StateManager.update_conversation(conv)
+
     cached_result = st.session_state.analysis_cache.get(cache_key)
 
     if cached_result:
-        session = st.session_state.analyst_session
-        if session:
-            conv = session.get_conversation()
-            conv.append({"role": "user", "content": query})
-            conv.append(
-                {
-                    "role": "assistant",
-                    "content": "Loaded the previous analysis for this same question.",
-                }
-            )
-            session.set_conversation(conv)
+        cached_conv = StateManager.get_conversation()
+        cached_conv.append(
+            {
+                "role": "assistant",
+                "content": "Loaded the previous analysis for this same question.",
+            }
+        )
+        StateManager.update_conversation(cached_conv)
         st.session_state.latest_result = cached_result
         st.session_state.report_path = None
         return
 
-    session = st.session_state.analyst_session
-    if not session:
-        client = st.session_state.analyst_client
-        session = client.create_session(df, file_name=st.session_state.file_name or "dataset")
-        st.session_state.analyst_session = session
+    state = {
+        "query": query,
+        "df": df,
+        "conversation": compact_conversation(conv),
+        "profile": {},
+        "quality_report": {},
+        "dataset_summary": "",
+        "analysis_result": {},
+        "visualization_result": {},
+        "insights": "",
+        "recommendations": "",
+        "execution_trace": [],
+    }
 
-    result = session.analyze(query)
+    result = invoke_fast_workflow(state)
 
+    analysis_res = result.get("analysis_result", {}).get("result")
+    insights = result.get("insights")
+    ar = format_agent_value(analysis_res)
+    ir = format_agent_value(insights)
+    assistant_reply = (
+        ar
+        if ar is not None and ar != []
+        else (ir if ir is not None and ir != [] else "Analysis complete.")
+    )
+
+    conv = StateManager.get_conversation()
+    conv.append({"role": "assistant", "content": str(assistant_reply)})
+    StateManager.update_conversation(conv)
     st.session_state.latest_result = result
     st.session_state.analysis_cache[cache_key] = result
     st.session_state.report_path = None
-
-
-def _load_single_file(uploaded_file, query=None):
-    """Load one uploaded file into a DataFrame."""
-    import io as _io
-    source_type = uploaded_source(uploaded_file)
-    if source_type == "SQLite":
-        tmp_path = None
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".db") as tmp:
-            tmp.write(uploaded_file.read())
-            tmp_path = tmp.name
-        try:
-            return DataLoader.load_sqlite(
-                tmp_path,
-                query or "SELECT name FROM sqlite_master WHERE type='table';",
-            ), source_type
-        finally:
-            if tmp_path and os.path.exists(tmp_path):
-                os.remove(tmp_path)
-    elif source_type in ("CSV", "Excel", "JSON"):
-        return DataLoader.load_file(uploaded_file), source_type
-    elif source_type == "PDF":
-        api_key = os.getenv("GEMINI_API_KEY")
-        if not api_key:
-            raise ValueError("GEMINI_API_KEY environment variable is not set.")
-        pdf_bytes = uploaded_file.read()
-        from core.gemini_service import parse_pdf_to_csv
-        csv_text = parse_pdf_to_csv(api_key, pdf_bytes)
-        return pd.read_csv(_io.StringIO(csv_text)), source_type
-    else:
-        raise ValueError("Unsupported file type.")
 
 
 def render_upload():
@@ -1587,78 +1342,55 @@ def render_upload():
 
     with left:
         st.markdown('<div class="section-label">Dataset Intake</div>', unsafe_allow_html=True)
-        uploaded_files = st.file_uploader(
-            "Upload 1 or 2 dataset files (they will be merged if compatible)",
-            type=("csv", "xlsx", "xls", "json", "db", "sqlite", "sqlite3", "pdf"),
-            accept_multiple_files=True,
-            help="Upload 1 or 2 CSV, Excel, JSON, SQLite, or PDF files. Two files of the same type are concatenated row-wise.",
+        uploaded_file = st.file_uploader(
+            "Dataset file",
+            type=("csv", "xlsx", "xls", "json", "db", "sqlite", "sqlite3"),
+            help="CSV, Excel, JSON, and SQLite files are supported.",
         )
-
-        # Enforce maximum of 2 files
-        if len(uploaded_files) > 2:
-            st.warning("Please upload a maximum of 2 files at a time. Only the first 2 will be used.")
-            uploaded_files = uploaded_files[:2]
 
         query = None
         source_type = None
 
-        if uploaded_files:
-            source_types = [uploaded_source(f) for f in uploaded_files]
-            source_type = source_types[0]
+        if uploaded_file is not None:
+            source_type = uploaded_source(uploaded_file)
+            st.info(f"Detected source: {source_type}")
 
-            # Show detected types for each file
-            for f, st_type in zip(uploaded_files, source_types):
-                st.info(f"{f.name} → {st_type}")
-
-            # SQLite query box if any file is SQLite
-            if "SQLite" in source_types:
+            if source_type == "SQLite":
                 query = st.text_area("SQL Query", "SELECT * FROM table_name LIMIT 1000")
 
-            # Warn if mixing incompatible types
-            if len(source_types) == 2 and source_types[0] != source_types[1]:
-                st.warning(
-                    f"Files are different types ({source_types[0]} and {source_types[1]}). "
-                    "Only the first file will be loaded."
-                )
-                uploaded_files = uploaded_files[:1]
-                source_types = source_types[:1]
-
             try:
-                frames = []
-                spinner_msg = "Extracting dataset from PDF using Gemini AI..." if "PDF" in source_types else "Loading dataset..."
-                with st.spinner(spinner_msg):
-                    for uf in uploaded_files:
-                        frame, _ = _load_single_file(uf, query=query)
-                        frames.append(frame)
+                if source_type == "SQLite":
+                    tmp_path = None
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".db") as tmp:
+                        tmp.write(uploaded_file.read())
+                        tmp_path = tmp.name
 
-                if len(frames) == 2:
                     try:
-                        df = pd.concat(frames, ignore_index=True)
-                        st.success(f"Merged {len(frames)} files → {df.shape[0]:,} rows × {df.shape[1]} columns.")
-                    except Exception as merge_exc:
-                        st.warning(f"Could not merge files automatically ({merge_exc}). Loading first file only.")
-                        df = frames[0]
+                        df = DataLoader.load_sqlite(
+                            tmp_path,
+                            query or "SELECT name FROM sqlite_master WHERE type='table';",
+                        )
+                    finally:
+                        if tmp_path and os.path.exists(tmp_path):
+                            os.remove(tmp_path)
+                elif source_type in ("CSV", "Excel", "JSON"):
+                    df = DataLoader.load_file(uploaded_file)
                 else:
-                    df = frames[0]
-
-                combined_names = " + ".join(f.name for f in uploaded_files)
+                    raise ValueError("Unsupported file type.")
 
                 StateManager.save_dataframe(
                     df=df,
-                    file_name=combined_names,
+                    file_name=getattr(uploaded_file, "name", "uploaded"),
                     source=source_type,
                 )
                 StateManager.update_conversation([])
                 st.session_state.latest_result = None
                 st.session_state.selected_chart_keys = []
                 st.session_state.report_path = None
-                st.session_state.pdf_report_path = None
-                st.session_state.chat_pdf_path = None
                 st.session_state.chart_cache_key = None
                 st.session_state.chart_cache = []
                 st.session_state.analysis_cache = {}
-                if len(frames) == 1:
-                    st.success("Dataset loaded.")
+                st.success("Dataset loaded.")
                 st.rerun()
             except Exception as exc:
                 st.error(f"Failed to load dataset: {exc}")
@@ -1667,9 +1399,9 @@ def render_upload():
         st.markdown('<div class="section-label">Workspace Snapshot</div>', unsafe_allow_html=True)
         c1, c2 = st.columns(2)
         with c1:
-            render_status("Formats", "CSV, Excel, JSON, PDF", "SQLite is available for query-based intake.")
+            render_status("Formats", "CSV, Excel, JSON", "SQLite is available for query-based intake.")
         with c2:
-            render_status("Output", "PPT, PDF report", "Selected charts are included in the export.")
+            render_status("Output", "PPT report", "Selected charts are included in the export.")
 
         st.markdown(
             """
@@ -1724,26 +1456,6 @@ def render_overview(df, profile, quality_report, column_summary):
     with left:
         st.markdown('<div class="section-label">Column Roles</div>', unsafe_allow_html=True)
         st.dataframe(column_summary, use_container_width=True, hide_index=True)
-
-        st.markdown('<div class="section-label">💡 Key Insight Drivers</div>', unsafe_allow_html=True)
-        top_measures = numeric_columns_ranked(df)[:3]
-        top_segments = categorical_columns_ranked(df, detect_time_columns(df))[:3]
-        
-        drivers_html = "<div class='readable-output' style='padding: 1.1rem; border-radius: 12px;'>"
-        drivers_html += "<h5 style='margin-top:0;'>Analytical KPIs (Measures)</h5>"
-        drivers_html += "<ul style='margin-bottom:0.8rem; padding-left:1.25rem;'>"
-        for m in top_measures:
-            drivers_html += f"<li><b>{escape(m)}</b>: Primary numerical metric contributing to correlation analysis and variance testing.</li>"
-        drivers_html += "</ul>"
-        
-        if top_segments:
-            drivers_html += "<h5>Key Grouping Attributes (Dimensions)</h5>"
-            drivers_html += "<ul style='margin-bottom:0; padding-left:1.25rem;'>"
-            for s in top_segments:
-                drivers_html += f"<li><b>{escape(s)}</b>: Critical categorical dimension enabling drill-downs and segment comparison.</li>"
-            drivers_html += "</ul>"
-        drivers_html += "</div>"
-        st.markdown(drivers_html, unsafe_allow_html=True)
 
     with right:
         st.markdown('<div class="section-label">Data Preview</div>', unsafe_allow_html=True)
@@ -1847,7 +1559,7 @@ def render_visual_lab(charts):
                 unsafe_allow_html=True,
             )
             st.plotly_chart(
-                style_chart(chart.fig),
+                chart.fig,
                 use_container_width=True,
                 config={"displaylogo": False, "responsive": True},
             )
@@ -1941,30 +1653,6 @@ def render_ai_workspace(df):
         st.markdown('<div class="section-label">Recommendations</div>', unsafe_allow_html=True)
         render_readable_value(result.get("recommendations", ""))
 
-    st.divider()
-    from services.pdf_service import PDFService
-    
-    c_btn, c_dl = st.columns(2)
-    with c_btn:
-        if st.button("Generate PDF for this Analysis", use_container_width=True):
-            output_name = safe_filename(StateManager.get_file_name() or "AI_Analysis")
-            chat_pdf_path = st.session_state.analyst_session.export_pdf(
-                output_path=f"outputs/{output_name}_Chat.pdf",
-            )
-            st.session_state.chat_pdf_path = chat_pdf_path
-            st.success("PDF analysis report generated.")
-            
-    with c_dl:
-        chat_pdf_path = st.session_state.get("chat_pdf_path")
-        if chat_pdf_path and os.path.exists(chat_pdf_path):
-            with open(chat_pdf_path, "rb") as pdf_file:
-                st.download_button(
-                    "Download Analysis PDF",
-                    data=pdf_file,
-                    file_name=os.path.basename(chat_pdf_path),
-                    use_container_width=True,
-                )
-
 
 def render_report(df, charts, profile, quality_report):
     lookup = chart_lookup(charts)
@@ -2002,54 +1690,34 @@ def render_report(df, charts, profile, quality_report):
     recommendations = latest.get("recommendations", "No AI recommendations generated yet.")
     analysis_result = latest.get("analysis_result", {"result": "No AI analysis generated yet."})
 
-    from services.pdf_service import PDFService
-    
-    col_btn_ppt, col_btn_pdf = st.columns(2)
-    with col_btn_ppt:
-        if st.button("Build PPT Report", use_container_width=True):
-            chart_items = [
-                (chart.path, chart.title, chart.caption)
-                for chart in selected_charts
-            ]
-            output_name = safe_filename(StateManager.get_file_name() or "AI_Report")
-            report_path = st.session_state.analyst_session.export_presentation(
-                output_path=f"outputs/{output_name}.pptx",
-                chart_items=chart_items,
-            )
-            st.session_state.report_path = report_path
-            st.success("PPT report built.")
-            
-    with col_btn_pdf:
-        if st.button("Build PDF Report", use_container_width=True):
-            output_name = safe_filename(StateManager.get_file_name() or "AI_Report")
-            pdf_path = st.session_state.analyst_session.export_pdf(
-                output_path=f"outputs/{output_name}.pdf"
-            )
-            st.session_state.pdf_report_path = pdf_path
-            st.success("PDF report built.")
+    if st.button("Build PPT Report"):
+        chart_items = [
+            (chart.path, chart.title, chart.caption)
+            for chart in selected_charts
+        ]
+        prs = PresentationService()
+        output_name = safe_filename(StateManager.get_file_name() or "AI_Report")
+        report_path = prs.create_report(
+            file_name=StateManager.get_file_name() or "dataset",
+            profile=report_profile,
+            quality_report=report_quality,
+            analysis_result=analysis_result,
+            insights=insights,
+            recommendations=recommendations,
+            chart_items=chart_items,
+            output_path=f"outputs/{output_name}.pptx",
+        )
+        st.session_state.report_path = report_path
+        st.success("PPT report built.")
 
-    col_dl_ppt, col_dl_pdf = st.columns(2)
-    with col_dl_ppt:
-        report_path = st.session_state.get("report_path")
-        if report_path and os.path.exists(report_path):
-            with open(report_path, "rb") as report_file:
-                st.download_button(
-                    "Download PPT Report",
-                    data=report_file,
-                    file_name=os.path.basename(report_path),
-                    use_container_width=True,
-                )
-                
-    with col_dl_pdf:
-        pdf_report_path = st.session_state.get("pdf_report_path")
-        if pdf_report_path and os.path.exists(pdf_report_path):
-            with open(pdf_report_path, "rb") as pdf_file:
-                st.download_button(
-                    "Download PDF Report",
-                    data=pdf_file,
-                    file_name=os.path.basename(pdf_report_path),
-                    use_container_width=True,
-                )
+    report_path = st.session_state.get("report_path")
+    if report_path and os.path.exists(report_path):
+        with open(report_path, "rb") as report_file:
+            st.download_button(
+                "Download PPT Report",
+                data=report_file,
+                file_name=os.path.basename(report_path),
+            )
 
 
 df = StateManager.get_dataframe()
@@ -2057,35 +1725,35 @@ df = StateManager.get_dataframe()
 if df is None:
     render_upload()
     st.stop()
-else:
-    working_df = working_dataframe(df)
-    profile, quality_report = local_report_inputs(working_df)
-    column_summary = build_column_summary(working_df)
-    charts = get_cached_chart_catalog(working_df)
 
-    render_header(df)
+df = working_dataframe(df)
+profile, quality_report = local_report_inputs(df)
+column_summary = build_column_summary(df)
+charts = get_cached_chart_catalog(df)
 
-    action_left, action_right = st.columns([1.2, 5.8])
-    with action_left:
-        if st.button("Reset Dataset", use_container_width=True):
-            reset_workspace()
-            st.rerun()
-    with action_right:
-        file_name = StateManager.get_file_name() or "dataset"
-        st.caption(f"Active dataset: {file_name}")
+render_header(df)
 
-    overview_tab, visual_tab, ai_tab, report_tab = st.tabs(
-        ["Overview", "Visual Lab", "AI Workspace", "Report"]
-    )
+action_left, action_right = st.columns([1, 5])
+with action_left:
+    if st.button("Reset Dataset"):
+        reset_workspace()
+        st.rerun()
+with action_right:
+    file_name = StateManager.get_file_name() or "dataset"
+    st.caption(f"Active dataset: {file_name}")
 
-    with overview_tab:
-        render_overview(working_df, profile, quality_report, column_summary)
+overview_tab, visual_tab, ai_tab, report_tab = st.tabs(
+    ["Overview", "Visual Lab", "AI Workspace", "Report"]
+)
 
-    with visual_tab:
-        render_visual_lab(charts)
+with overview_tab:
+    render_overview(df, profile, quality_report, column_summary)
 
-    with ai_tab:
-        render_ai_workspace(working_df)
+with visual_tab:
+    render_visual_lab(charts)
 
-    with report_tab:
-        render_report(working_df, charts, profile, quality_report)
+with ai_tab:
+    render_ai_workspace(df)
+
+with report_tab:
+    render_report(df, charts, profile, quality_report)
