@@ -1457,10 +1457,13 @@ def run_agent_workflow(query, df):
             from core.gemini_service import generate_text
             from core.config import GEMINI_API_KEY
             prompt = (
-                f"The user asked: '{query}'. The system computed the following raw output: {ar}. "
-                "Please provide a clear, readable, and comprehensive natural language answer to the user's question based on this data. "
-                "Format any numbers, lists, or tables nicely using Markdown. Do NOT include raw Python dictionaries or arrays in your response. "
-                "Do not mention 'the system' or 'the raw output', just provide the answer directly."
+                f"The user asked: '{query}'.\n\n"
+                f"The system computed this raw data result: {ar}\n\n"
+                f"The system also generated these comprehensive dataset insights:\n{ir}\n\n"
+                "Please provide a clear, readable, and highly comprehensive natural language answer to the user's question. "
+                "Draw from both the specific data result and the broader insights to provide a deep, detailed analysis. "
+                "Format any numbers, lists, or tables beautifully using Markdown. Do NOT include raw Python dictionaries or arrays. "
+                "Answer directly without mentioning 'the system' or your internal data sources."
             )
             assistant_reply = generate_text(GEMINI_API_KEY, prompt, max_output_tokens=700)
         except Exception:
