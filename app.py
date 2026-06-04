@@ -31,7 +31,7 @@ except ImportError:
     def invoke_fast_workflow(state):
         return graph.invoke(state)
 from services.presentation_service import PresentationService
-
+from services.pdf_service import PDFService
 
 st.set_page_config(
     page_title="AI Data Analyst",
@@ -963,17 +963,17 @@ def strongest_corr_pair(df, numeric_cols):
 
 def style_chart(fig):
     fig.update_layout(
-        template="plotly_white",
+        template="plotly_dark",
         colorway=CHART_COLORS,
         font=dict(color=INK, family="Inter, Segoe UI, Arial", size=13),
         title_font=dict(color=INK, size=18),
-        paper_bgcolor="#ffffff",
-        plot_bgcolor="#ffffff",
+        paper_bgcolor=PANEL,
+        plot_bgcolor=PANEL,
         margin=dict(l=58, r=30, t=58, b=58),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
     )
-    fig.update_xaxes(color=INK, gridcolor="#e8edf3", zerolinecolor="#cfd7e3", linecolor="#cfd7e3")
-    fig.update_yaxes(color=INK, gridcolor="#e8edf3", zerolinecolor="#cfd7e3", linecolor="#cfd7e3")
+    fig.update_xaxes(color=INK, gridcolor=BORDER, zerolinecolor=BORDER, linecolor=BORDER)
+    fig.update_yaxes(color=INK, gridcolor=BORDER, zerolinecolor=BORDER, linecolor=BORDER)
     return fig
 
 
@@ -1827,34 +1827,66 @@ def render_report(df, charts, profile, quality_report):
     recommendations = latest.get("recommendations", "No AI recommendations generated yet.")
     analysis_result = latest.get("analysis_result", {"result": "No AI analysis generated yet."})
 
-    if st.button("Build PPT Report"):
-        chart_items = [
-            (chart.path, chart.title, chart.caption)
-            for chart in selected_charts
-        ]
-        prs = PresentationService()
-        output_name = safe_filename(StateManager.get_file_name() or "AI_Report")
-        report_path = prs.create_report(
-            file_name=StateManager.get_file_name() or "dataset",
-            profile=report_profile,
-            quality_report=report_quality,
-            analysis_result=analysis_result,
-            insights=insights,
-            recommendations=recommendations,
-            chart_items=chart_items,
-            output_path=f"outputs/{output_name}.pptx",
-        )
-        st.session_state.report_path = report_path
-        st.success("PPT report built.")
-
-    report_path = st.session_state.get("report_path")
-    if report_path and os.path.exists(report_path):
-        with open(report_path, "rb") as report_file:
-            st.download_button(
-                "Download PPT Report",
-                data=report_file,
-                file_name=os.path.basename(report_path),
+    col_btn_ppt, col_btn_pdf = st.columns(2)
+    with col_btn_ppt:
+        if st.button("Build PPT Report", use_container_width=True):
+            chart_items = [
+                (chart.path, chart.title, chart.caption)
+                for chart in selected_charts
+            ]
+            prs = PresentationService()
+            output_name = safe_filename(StateManager.get_file_name() or "AI_Report")
+            report_path = prs.create_report(
+                file_name=StateManager.get_file_name() or "dataset",
+                profile=report_profile,
+                quality_report=report_quality,
+                analysis_result=analysis_result,
+                insights=insights,
+                recommendations=recommendations,
+                chart_items=chart_items,
+                output_path=f"outputs/{output_name}.pptx",
             )
+            st.session_state.report_path = report_path
+            st.success("PPT report built.")
+
+    with col_btn_pdf:
+        if st.button("Build PDF Report", use_container_width=True):
+            pdf_svc = PDFService()
+            output_name = safe_filename(StateManager.get_file_name() or "AI_Report")
+            pdf_path = pdf_svc.create_report(
+                file_name=StateManager.get_file_name() or "dataset",
+                profile=report_profile,
+                quality_report=report_quality,
+                analysis_result=analysis_result,
+                insights=insights,
+                recommendations=recommendations,
+                output_path=f"outputs/{output_name}.pdf",
+            )
+            st.session_state.pdf_report_path = pdf_path
+            st.success("PDF report built.")
+
+    col_dl_ppt, col_dl_pdf = st.columns(2)
+    with col_dl_ppt:
+        report_path = st.session_state.get("report_path")
+        if report_path and os.path.exists(report_path):
+            with open(report_path, "rb") as report_file:
+                st.download_button(
+                    "Download PPT Report",
+                    data=report_file,
+                    file_name=os.path.basename(report_path),
+                    use_container_width=True,
+                )
+    
+    with col_dl_pdf:
+        pdf_report_path = st.session_state.get("pdf_report_path")
+        if pdf_report_path and os.path.exists(pdf_report_path):
+            with open(pdf_report_path, "rb") as pdf_file:
+                st.download_button(
+                    "Download PDF Report",
+                    data=pdf_file,
+                    file_name=os.path.basename(pdf_report_path),
+                    use_container_width=True,
+                )
 
 
 df = StateManager.get_dataframe()

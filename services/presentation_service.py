@@ -286,7 +286,6 @@ class PresentationService:
                     Inches(1.0),
                     Inches(1.15),
                     width=Inches(11.3),
-                    height=Inches(5.0),
                 )
             except Exception:
                 continue
