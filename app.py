@@ -1453,7 +1453,18 @@ def run_agent_workflow(query, df):
     ar = format_agent_value(analysis_res)
     ir = format_agent_value(insights)
     if ar is not None and ar != [] and ar != "None" and str(ar).strip():
-        assistant_reply = f"Here is the result of your query:\n\n```text\n{ar}\n```"
+        try:
+            from core.gemini_service import generate_text
+            from core.config import GEMINI_API_KEY
+            prompt = (
+                f"The user asked: '{query}'. The system computed the following raw output: {ar}. "
+                "Write a very brief (1-2 sentences) natural language summary of this result directly answering the user. "
+                "Do not mention 'the system' or 'the raw output', just provide the answer directly."
+            )
+            brief_answer = generate_text(GEMINI_API_KEY, prompt, max_output_tokens=150)
+            assistant_reply = f"{brief_answer}\n\n**Raw Output:**\n```text\n{ar}\n```"
+        except Exception:
+            assistant_reply = f"Here is the result of your query:\n\n```text\n{ar}\n```"
     elif ir is not None and ir != [] and ir != "None" and str(ir).strip():
         assistant_reply = "Analysis complete. I've updated the Insights and Recommendations sections with new findings based on your query."
     else:
