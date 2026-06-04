@@ -12,12 +12,12 @@ except ModuleNotFoundError:
 # an env var named 'GEMINI_API_KEY'. If running in Streamlit with
 # secrets configured, fall back to `st.secrets`.
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")
 GEMINI_FALLBACK_MODELS = [
     model.strip()
     for model in os.getenv(
         "GEMINI_FALLBACK_MODELS",
-        "gemini-2.5-flash,gemini-2.0-flash-lite"
+        "gemini-2.5-flash,gemini-2.5-flash-lite"
     ).split(",")
     if model.strip()
 ]

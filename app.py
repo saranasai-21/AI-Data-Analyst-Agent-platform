@@ -1458,11 +1458,11 @@ def run_agent_workflow(query, df):
             from core.config import GEMINI_API_KEY
             prompt = (
                 f"The user asked: '{query}'. The system computed the following raw output: {ar}. "
-                "Write a very brief (1-2 sentences) natural language summary of this result directly answering the user. "
+                "Please provide a clear, readable, and comprehensive natural language answer to the user's question based on this data. "
+                "Format any numbers, lists, or tables nicely using Markdown. Do NOT include raw Python dictionaries or arrays in your response. "
                 "Do not mention 'the system' or 'the raw output', just provide the answer directly."
             )
-            brief_answer = generate_text(GEMINI_API_KEY, prompt, max_output_tokens=150)
-            assistant_reply = f"{brief_answer}\n\n**Raw Output:**\n```text\n{ar}\n```"
+            assistant_reply = generate_text(GEMINI_API_KEY, prompt, max_output_tokens=700)
         except Exception:
             assistant_reply = f"Here is the result of your query:\n\n```text\n{ar}\n```"
     elif ir is not None and ir != [] and ir != "None" and str(ir).strip():
@@ -1732,6 +1732,8 @@ def render_ai_workspace(df):
     query = st.chat_input("Ask a question about this dataset")
 
     if query:
+        with st.chat_message("user"):
+            st.write(query)
         with st.spinner("Running the analysis workflow..."):
             try:
                 run_agent_workflow(query, df)
@@ -1910,7 +1912,7 @@ render_header(df)
 
 action_left, action_right = st.columns([1, 5])
 with action_left:
-    if st.button("Reset Dataset"):
+    if st.button("Reset Workspace"):
         reset_workspace()
         st.rerun()
 with action_right:
