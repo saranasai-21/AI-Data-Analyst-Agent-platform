@@ -1,103 +1,166 @@
-# ⚡ EKPC Load Forecasting using Bidirectional LSTM
+---
+title: AI Data Analyst
+emoji: 📊
+colorFrom: indigo
+colorTo: purple
+sdk: docker
+pinned: false
+license: apache-2.0
+---
 
-An advanced deep learning-based electricity load forecasting system developed using **TensorFlow, Bidirectional LSTM, and Streamlit**.
-This project predicts next-hour electricity demand using historical load patterns and time-series forecasting techniques.
+# 📊 AI Data Analyst Agent
+
+An advanced, autonomous multi-agent data analytics and reporting system developed using **Google Gemini, LangGraph, and Streamlit**.
+This project profiles datasets, performs data quality checks, executes pandas code dynamically in a secure sandbox, renders interactive plotly visualizations, and generates professional PDF/PowerPoint reports based on natural language queries.
 
 # 📌 Project Overview
 
-Electricity demand forecasting is critical for:
+Automated data analysis and insight generation is critical for:
 
-- Power system planning
-- Load balancing
-- Energy optimization
-- Grid stability
-- Smart energy management
+- Assessing data quality and profiling anomalies
+- Fast exploratory data analysis (EDA)
+- Creating visual representations of complex patterns
+- Accelerating business decision-making
+- Generating structured executive business reports
+- Democratizing data access via natural language interfaces
 
-This project uses a **Bidirectional Long Short-Term Memory (BiLSTM)** neural network to accurately forecast electricity load based on historical consumption data.
-The system also includes a professional **Streamlit dashboard** for real-time forecasting and visualization.
+This project uses a **LangGraph-based multi-agent orchestration workflow** to analyze datasets, write/execute Python code, extract insights, and format findings into PDFs/PowerPoints.
 
-# Deep Learning Architecture
+# 🤖 Multi-Agent Architecture
 
-The forecasting model uses:
+The multi-agent graph orchestrates several specialized agents:
 
-- Bidirectional LSTM Layers
-- Dense Neural Layers
-- Dropout Regularization
-- Adam Optimizer
-- EarlyStopping
+- **DataQualityAgent**: Performs null checks, duplicate checks, and outlier detection.
+- **ProfilingAgent**: Summarizes columns, data types, and basic statistics.
+- **AnalysisAgent**: Formulates and executes Pandas-based queries in a secure AST evaluation sandbox.
+- **VisualizationAgent**: Automatically plots interactive figures using Plotly.
+- **InsightAgent**: Synthesizes execution results to draft bulleted analytical findings.
+- **RecommendationAgent**: Translates data insights into tactical business recommendations.
+- **MemoryAgent**: Manages session memory and history for conversational context.
 
-# 📊 Feature Engineering
+# 📊 Key Features & Security
 
-The model was trained using:
+The system was built with the following features:
 
-- Historical Load Values (EKPC_MW)
-- Rolling Mean (24 Hours)
-- Cyclical Hour Encoding (Hour_sin, Hour_cos)
+- **Multi-format Input Ingestion**: Supports CSV, Excel, JSON, SQLite, and PDF files (via Gemini table parsing).
+- **AST-based Safe Evaluation Sandbox**: The code evaluation engine checks the syntax tree using `ast` parser before execution, prohibiting forbidden commands (`exec`, `eval`, `open`, etc.) or module imports (`os`, `sys`, `subprocess`, etc.) to prevent shell escapes or data exposure.
+- **Programmatic Python SDK**: Fully decoupled `sdk/` package allows importing and running sessions directly in Python scripts and Jupyter notebooks.
+- **Auto-generated Business Documents**: Automatically builds and exports PDF reports (via ReportLab) and PowerPoint presentations (via python-pptx).
 
-# 📈 Model Performance
+# 📈 System Workflow & Pipeline
 
-| Metric | Value |
-|---|---|
-| MAE | 29.31 |
-| MSE | 1505.41 |
-| RMSE | 38.80 |
-| R² Score | 0.9905 |
-| Accuracy (Within 10%) | 98%+ |
+| Stage | Agent / Component | Input | Output / Action |
+|---|---|---|---|
+| 1. Ingestion | `DataLoader` | Raw file (CSV/Excel/JSON/SQLite/PDF) | Cleaned pandas DataFrame |
+| 2. Quality Check | `DataQualityAgent` | DataFrame | Null value, outlier & duplicate detection |
+| 3. Profiling | `ProfilingAgent` | DataFrame | Column types, summary stats & shape |
+| 4. Code Execution | `AnalysisAgent` | Query + DataFrame | Validated and executed Python code results |
+| 5. Visualization | `VisualizationAgent` | Query + DataFrame | Dynamic and interactive Plotly chart specs |
+| 6. Insights | `InsightAgent` | Analysis Result | Key analytical and business findings |
+| 7. Recommendations | `RecommendationAgent` | Insights | Tactical business recommendations |
 
 # Interpretation
 
-- The model achieves very high forecasting accuracy.
-- R² Score of 0.9905 indicates excellent learning capability.
-- Low MAE and RMSE values show minimal prediction error.
-- Accuracy within 10% demonstrates reliable real-world forecasting performance.
+- The multi-agent architecture operates on a LangGraph state graph.
+- The parallelized fast-track workflow uses ThreadPoolExecutor to run Data Quality + Profiling and Analysis + Visualization in parallel, speeding up end-to-end execution.
+- The safe executor intercepts and parses code using python's AST parser to prevent execution of unauthorized system commands.
+- Report builders convert plotly charts and structured text directly to PDF and slide formats.
 
 # Technologies Used
 
 - Python
-- TensorFlow / Keras
-- NumPy
-- Pandas
-- Scikit-learn
-- Streamlit
-- Joblib
+- LangGraph (Agentic Workflow orchestration)
+- Google Gemini API (`google-genai`)
+- Streamlit (Web interface)
+- Pandas & NumPy (Data manipulation)
+- Plotly (Data visualization)
+- ReportLab (PDF generator)
+- python-pptx (PowerPoint presentation generator)
+- SQLAlchemy (SQLite database connection)
+- python-dotenv
 
 # 🚀 Streamlit Application
 
 The Streamlit dashboard allows users to:
 
-- Enter recent electricity load values
-- Predict the next-hour electricity demand
-- View model performance metrics
-- Perform real-time forecasting interactively
+- Upload raw datasets in various formats
+- Explore profile summaries and quality report tabs
+- Chat with agents using natural language
+- View executed python code, plotly charts, and insights
+- Download generated PDF reports and PPT presentations
+- Inspect agent execution traces and latency metrics
 
 ## Run the Project
-```text
-Install Requirements
-- pip install -r requirements.txt
-Run Streamlit App
-- streamlit run app.py
-```
+
+### Local Setup
+1. Clone the repository.
+2. Initialize virtual environment and install packages:
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate  # Or `.venv\Scripts\activate` on Windows
+   pip install -r requirements.txt
+   ```
+3. Copy `.env.example` to `.env` and set your `GEMINI_API_KEY`:
+   ```bash
+   cp .env.example .env
+   ```
+4. Run the Streamlit application:
+   ```bash
+   streamlit run app.py
+   ```
+
+### Docker Setup
+1. Build the image:
+   ```bash
+   docker build -t ai-data-analyst .
+   ```
+2. Run the container:
+   ```bash
+   docker run -p 7860:7860 -e GEMINI_API_KEY="your_api_key_here" ai-data-analyst
+   ```
+
 # 📂 Project Structure
 
 ```text
-EKPC Load Forecasting using BiLSTM
+AI-Data-Analyst-Agent/
 │
-├── app.py
-├── train.py
-├── ekpc_usage.csv
-├── load_forecasting_model.keras
-├── scaler.save
-├── metrics.save
-├── requirements.txt
-└── README.md
+├── agents/                     # Specialized LangGraph Agent Definitions
+│   ├── analysis_agent.py
+│   ├── data_quality_agent.py
+│   ├── insight_agent.py
+│   ├── memory_agent.py
+│   ├── planner_agent.py
+│   ├── profiling_agent.py
+│   ├── recommendation_agent.py
+│   └── visualization_agent.py
+│
+├── core/                       # Core system logic and services
+│   ├── code_validator.py       # AST validator for safe code execution
+│   ├── config.py               # Settings and configuration
+│   ├── data_loader.py          # Data ingestion (CSV, Excel, SQLite, etc.)
+│   ├── gemini_service.py       # Wrapper for Google Gemini Client
+│   ├── safe_executor.py        # Secure sandbox execution environment
+│   └── state_manager.py        # Streamlit state manager
+│
+├── orchestrator/               # Agent orchestration & workflow definitions
+│   └── graph.py                # LangGraph state graph definitions
+│
+├── sdk/                        # Decoupled python SDK package
+│   ├── __init__.py
+│   ├── client.py
+│   └── session.py
+│
+├── services/                   # Export and document services
+│   ├── pdf_service.py          # PDF report generator
+│   └── presentation_service.py # PPTX slide generator
+│
+├── app.py                      # Streamlit application entry point
+├── requirements.txt            # Python dependencies
+└── README.md                   # Project documentation
 ```
 
-Developed as a deep learning and time-series forecasting project using BiLSTM architecture for electricity demand prediction.
+Developed as a multi-agent and data analytics assistant using LangGraph and Google Gemini.
 
 # 🌐 Live Demo
 
-Streamlit App: https://ai-load-forecasting-using-lstm.streamlit.app
-
-# Screenshot
-
-<img width="1374" height="830" alt="Screenshot 2026-05-22 023404" src="https://github.com/user-attachments/assets/8e22f1d0-1c98-455a-91fc-484d30d4706b" />
+Hugging Face Space: https://huggingface.co/spaces/saranasai/AI-Data-Analyst
