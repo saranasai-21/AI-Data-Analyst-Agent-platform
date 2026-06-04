@@ -59,17 +59,29 @@ for key, value in SESSION_DEFAULTS.items():
         st.session_state[key] = value
 
 
-INK = "#20212b"
-MUTED = "#646b7c"
-PANEL = "#ffffff"
-CANVAS = "#f6f7fb"
-BORDER = "#dbe2ea"
-BLUE = "#2563eb"
-TEAL = "#0f766e"
-AMBER = "#b7791f"
-GREEN = "#1f7a4d"
-RED = "#b42318"
-VIOLET = "#6d4aff"
+INK = "#f3f4f6"
+MUTED = "#9ca3af"
+PANEL = "#111827"
+CANVAS = "#080c14"
+BORDER = "#1f2937"
+BLUE = "#6366f1"
+TEAL = "#06b6d4"
+AMBER = "#f59e0b"
+GREEN = "#10b981"
+RED = "#ef4444"
+VIOLET = "#8b5cf6"
+SHELL_BG = "linear-gradient(135deg, #1e1b4b 0%, #080c14 100%)"
+SHELL_BORDER = "rgba(99, 102, 241, 0.25)"
+SHELL_SHADOW = "rgba(0, 0, 0, 0.5)"
+GLASS_BG = "rgba(30, 41, 59, 0.45)"
+GLASS_SHADOW = "rgba(0, 0, 0, 0.2)"
+FILE_DROP_BG = "rgba(17, 24, 39, 0.6)"
+CHAT_INPUT_BG = "rgba(8, 12, 20, 0.95)"
+TEXTAREA_BG = "rgba(30, 41, 59, 0.7)"
+PLOTLY_TEMPLATE = "plotly_dark"
+CODE_BG = "#0d1117"
+CODE_COLOR = "#e6edf3"
+SHADOW = "0 8px 30px rgba(0, 0, 0, 0.3)"
 
 CHART_COLORS = [BLUE, TEAL, AMBER, GREEN, RED, VIOLET, "#0891b2", "#c2410c"]
 
@@ -88,6 +100,8 @@ class ChartSpec:
 st.markdown(
     f"""
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+
     :root {{
         --ink: {INK};
         --muted: {MUTED};
@@ -99,6 +113,9 @@ st.markdown(
         --amber: {AMBER};
         --green: {GREEN};
         --red: {RED};
+        --code-bg: {CODE_BG};
+        --code-color: {CODE_COLOR};
+        --shadow: {SHADOW};
     }}
 
     .stApp {{
@@ -118,19 +135,19 @@ st.markdown(
         padding: 1.15rem 1.25rem 5.5rem;
     }}
 
-    h1, h2, h3, h4, h5, h6, p, label, span, div {{
+    h1, h2, h3, h4, h5, h6, p, label, span {{
         color: var(--ink);
-        font-family: "Inter", "Segoe UI", Arial, sans-serif;
+        font-family: "Plus Jakarta Sans", "Inter", -apple-system, sans-serif;
         letter-spacing: 0;
     }}
 
     .app-shell {{
-        background: var(--panel);
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        padding: 1.15rem 1.2rem;
-        margin-bottom: 1rem;
-        box-shadow: 0 12px 30px rgba(32, 33, 43, 0.06);
+        background: {SHELL_BG};
+        border: 1px solid {SHELL_BORDER};
+        border-radius: 12px;
+        padding: 1.5rem 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 12px 40px {SHELL_SHADOW}, inset 0 1px 0 rgba(255, 255, 255, 0.05);
     }}
 
     .app-header {{
@@ -180,8 +197,19 @@ st.markdown(
     .metric-tile,
     .status-tile {{
         border: 1px solid var(--border);
-        border-radius: 8px;
-        background: #fbfcff;
+        border-radius: 12px;
+        background: {GLASS_BG};
+        backdrop-filter: blur(16px);
+        box-shadow: 0 8px 32px 0 {GLASS_SHADOW};
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }}
+
+    .header-chip:hover,
+    .metric-tile:hover,
+    .status-tile:hover {{
+        transform: translateY(-2px);
+        border-color: rgba(99, 102, 241, 0.35);
+        box-shadow: 0 12px 30px rgba(99, 102, 241, 0.1);
     }}
 
     .header-chip {{
@@ -284,33 +312,41 @@ st.markdown(
     }}
 
     .empty-note {{
-        background: #fffaf0;
-        border: 1px solid #f0d197;
-        border-radius: 8px;
-        padding: 0.9rem;
-        color: #7a4d00;
-        line-height: 1.45;
+        background: rgba(99, 102, 241, 0.05) !important;
+        border: 1px solid rgba(99, 102, 241, 0.2) !important;
+        border-radius: 12px !important;
+        padding: 1.2rem !important;
+        color: var(--muted) !important;
+        line-height: 1.5 !important;
     }}
 
     [data-testid="stTabs"] [role="tablist"] {{
-        gap: 0.35rem;
-        border-bottom: 1px solid var(--border);
+        gap: 0.5rem;
+        border-bottom: 1px solid var(--border) !important;
+        padding: 0.2rem 0;
     }}
 
     [data-testid="stTabs"] [role="tab"] {{
-        border-radius: 8px 8px 0 0;
-        color: var(--muted);
-        font-weight: 750;
-        padding: 0.65rem 0.9rem;
+        border-radius: 8px !important;
+        color: var(--muted) !important;
+        font-weight: 600 !important;
+        padding: 0.5rem 1.1rem !important;
+        border: 1px solid transparent !important;
+        transition: all 0.2s ease !important;
+    }}
+
+    [data-testid="stTabs"] [role="tab"]:hover {{
+        color: var(--blue) !important;
+        background: rgba(99, 102, 241, 0.05) !important;
     }}
 
     [data-testid="stTabs"] [aria-selected="true"] {{
-        background: var(--panel);
-        color: var(--blue);
+        background: rgba(99, 102, 241, 0.1) !important;
+        color: var(--blue) !important;
+        border: 1px solid rgba(99, 102, 241, 0.2) !important;
     }}
 
     [data-testid="stMetric"],
-    [data-testid="stFileUploader"],
     [data-testid="stDataFrame"],
     [data-testid="stImage"],
     [data-testid="stExpander"],
@@ -318,41 +354,64 @@ st.markdown(
     [data-testid="stChatMessage"],
     [data-baseweb="select"],
     .stTextArea textarea {{
-        background: var(--panel);
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        box-shadow: 0 8px 20px rgba(32, 33, 43, 0.04);
+        background: var(--panel) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: 12px !important;
+        box-shadow: var(--shadow) !important;
     }}
 
     [data-testid="stFileUploader"] {{
-        padding: 1rem;
+        padding: 1.25rem;
+        background: rgba(30, 41, 59, 0.3) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: 12px !important;
     }}
 
     [data-testid="stFileUploaderDropzone"] {{
-        border: 1px dashed #9aa7b7;
-        border-radius: 8px;
-        background: #ffffff;
-        color: var(--ink);
+        border: 2px dashed rgba(99, 102, 241, 0.3) !important;
+        border-radius: 10px !important;
+        background: {FILE_DROP_BG} !important;
+        color: var(--ink) !important;
+        padding: 1.5rem 1rem !important;
+        transition: all 0.25s ease !important;
+    }}
+
+    [data-testid="stFileUploaderDropzone"]:hover {{
+        border-color: var(--blue) !important;
+        background: rgba(99, 102, 241, 0.05) !important;
     }}
 
     [data-testid="stFileUploader"] label,
     [data-testid="stFileUploader"] p,
-    [data-testid="stFileUploader"] span,
-    [data-testid="stFileUploader"] small,
+    [data-testid="stFileUploader"] small {{
+        color: var(--muted) !important;
+    }}
+
     [data-testid="stFileUploaderDropzone"] div {{
         color: var(--ink) !important;
     }}
 
-    [data-testid="stFileUploaderDropzone"] button {{
-        background: var(--blue) !important;
+    [data-testid="stFileUploaderDropzone"] button,
+    [data-testid="stFileUploaderDropzone"] [data-testid="stBaseButton-secondary"] {{
+        background: linear-gradient(135deg, var(--blue) 0%, #4f46e5 100%) !important;
         border: 1px solid var(--blue) !important;
         color: white !important;
         border-radius: 8px !important;
-        font-weight: 750 !important;
+        font-weight: 600 !important;
+        box-shadow: 0 4px 10px rgba(99, 102, 241, 0.2) !important;
+        padding: 0.45rem 1rem !important;
+        transition: all 0.2s ease !important;
+    }}
+
+    [data-testid="stFileUploaderDropzone"] button:hover,
+    [data-testid="stFileUploaderDropzone"] [data-testid="stBaseButton-secondary"]:hover {{
+        background: linear-gradient(135deg, #4f46e5 0%, #8b5cf6 100%) !important;
+        border-color: #8b5cf6 !important;
+        box-shadow: 0 6px 12px rgba(139, 92, 246, 0.3) !important;
     }}
 
     [data-testid="stFileUploaderDropzone"] button *,
-    [data-testid="stFileUploaderDropzone"] button svg {{
+    [data-testid="stFileUploaderDropzone"] [data-testid="stBaseButton-secondary"] * {{
         color: white !important;
         fill: white !important;
         stroke: white !important;
@@ -360,64 +419,133 @@ st.markdown(
 
     .stButton>button,
     .stDownloadButton>button {{
-        border-radius: 8px;
+        border-radius: 10px;
         border: 1px solid var(--blue);
-        background: var(--blue);
-        color: white;
-        font-weight: 750;
-        box-shadow: none;
+        background: linear-gradient(135deg, var(--blue) 0%, #4f46e5 100%);
+        color: white !important;
+        font-weight: 600;
+        font-family: "Plus Jakarta Sans", sans-serif;
+        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
     }}
 
     .stButton>button:hover,
     .stDownloadButton>button:hover {{
-        border-color: #1d4ed8;
-        background: #1d4ed8;
-        color: white;
+        transform: translateY(-1px);
+        border-color: #8b5cf6;
+        background: linear-gradient(135deg, #4f46e5 0%, #8b5cf6 100%);
+        color: white !important;
+        box-shadow: 0 6px 16px rgba(139, 92, 246, 0.4);
     }}
 
     .secondary-action button {{
         border-color: var(--border) !important;
-        background: white !important;
+        background: rgba(30, 41, 59, 0.6) !important;
         color: var(--ink) !important;
     }}
 
     [data-testid="stChatInput"] {{
-        border-top: 1px solid var(--border);
-        background: rgba(246, 247, 251, 0.95);
+        border-top: 1px solid var(--border) !important;
+        background: {CHAT_INPUT_BG} !important;
     }}
 
     [data-testid="stChatInput"] textarea {{
-        background: white !important;
+        background: {TEXTAREA_BG} !important;
         color: var(--ink) !important;
+        border: 1px solid var(--border) !important;
         border-radius: 8px !important;
         caret-color: var(--blue) !important;
     }}
 
     .readable-output {{
-        background: var(--panel);
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        padding: 0.95rem;
-        color: var(--ink);
+        background: rgba(30, 41, 59, 0.3) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: 12px !important;
+        padding: 1.2rem !important;
+        color: var(--ink) !important;
         white-space: pre-wrap;
         overflow-wrap: anywhere;
-        line-height: 1.55;
+        line-height: 1.6;
     }}
 
     pre, code {{
-        background: #fbfcff !important;
-        color: var(--ink) !important;
-        border: 1px solid var(--border);
-        border-radius: 8px;
+        background: var(--code-bg) !important;
+        color: var(--code-color) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: 8px !important;
     }}
 
     .stPlotlyChart {{
-        background: var(--panel);
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        padding: 0.55rem;
-        box-shadow: 0 8px 20px rgba(32, 33, 43, 0.04);
+        background: var(--panel) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: 12px !important;
+        padding: 0.75rem !important;
+        box-shadow: var(--shadow) !important;
     }}
+
+    /* Table Styling for Markdown Outputs */
+    table {{
+        border-collapse: collapse !important;
+        width: 100% !important;
+        margin: 1rem 0 !important;
+        background-color: var(--panel) !important;
+        color: var(--ink) !important;
+        border-radius: 8px !important;
+        overflow: hidden !important;
+        border: 1px solid var(--border) !important;
+    }}
+    th {{
+        background-color: var(--blue) !important;
+        color: white !important;
+        font-weight: 700 !important;
+        text-align: left !important;
+        padding: 0.65rem 0.95rem !important;
+        border: 1px solid var(--border) !important;
+    }}
+    td {{
+        padding: 0.55rem 0.95rem !important;
+        border: 1px solid var(--border) !important;
+        background-color: var(--panel) !important;
+        color: var(--ink) !important;
+    }}
+    tr:nth-child(even) td {{
+        background-color: var(--canvas) !important;
+    }}
+
+    /* Dropdown Portal Styling for Light/Dark Mode compatibility */
+    div[data-baseweb="popover"] {{
+        z-index: 9999999 !important;
+    }}
+    div[data-baseweb="popover"] ul {{
+        background-color: var(--panel) !important;
+        color: var(--ink) !important;
+        border: 1px solid var(--border) !important;
+    }}
+    div[data-baseweb="popover"] li {{
+        color: var(--ink) !important;
+        background-color: transparent !important;
+        transition: background-color 0.15s ease !important;
+    }}
+    div[data-baseweb="popover"] li:hover {{
+        background-color: rgba(99, 102, 241, 0.12) !important;
+        color: var(--blue) !important;
+    }}
+
+    /* Text overrides inside select elements */
+    [data-baseweb="select"] * {{
+        color: var(--ink) !important;
+    }}
+    /* Chips (multi-select tags) text contrast */
+    div[data-baseweb="tag"] {{
+        background-color: var(--blue) !important;
+        color: white !important;
+        border-radius: 6px !important;
+    }}
+    div[data-baseweb="tag"] * {{
+        color: white !important;
+        fill: white !important;
+    }}
+
 
     hr {{
         border-color: var(--border);
