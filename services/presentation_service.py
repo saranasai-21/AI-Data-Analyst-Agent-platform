@@ -138,7 +138,7 @@ class PresentationService:
         # hundredths of a point
         spcPts.set("val", str(int(pt_value * 100)))
 
-    def _add_body_lines(self, slide, lines, top=1.22, font_size=13, max_lines=14):
+    def _add_body_lines(self, slide, lines, top=1.22, font_size=17, max_lines=14):
         box = slide.shapes.add_textbox(
             Inches(0.85),
             Inches(top),
@@ -236,7 +236,7 @@ class PresentationService:
             f"Duplicate rows: {duplicates}",
             f"Important columns preview: {', '.join(column_names[:12])}",
         ]
-        self._add_body_lines(slide, self._wrapped_lines(lines), font_size=13, max_lines=12)
+        self._add_body_lines(slide, self._wrapped_lines(lines), font_size=17, max_lines=12)
 
     def _add_data_quality_slide(self, prs, quality_report):
         slide = self._blank_slide(prs, "Data Quality Assessment")
@@ -250,7 +250,7 @@ class PresentationService:
             f"Constant columns: {constant_columns}",
             f"High-cardinality columns: {high_cardinality}",
         ]
-        self._add_body_lines(slide, self._wrapped_lines(lines), font_size=13, max_lines=12)
+        self._add_body_lines(slide, self._wrapped_lines(lines), font_size=17, max_lines=12)
 
     def _add_analysis_slide(self, prs, analysis_result):
         if isinstance(analysis_result, dict):
@@ -319,7 +319,7 @@ class PresentationService:
         for index, chunk in enumerate(chunks[:6], start=1):
             slide_title = title if index == 1 else f"{title} Continued"
             slide = self._blank_slide(prs, slide_title)
-            self._add_body_lines(slide, chunk, font_size=13, max_lines=chunk_size)
+            self._add_body_lines(slide, chunk, font_size=17, max_lines=chunk_size)
 
     def _add_conclusion_slide(self, prs):
         slide = self._blank_slide(prs, "Conclusion")
@@ -335,6 +335,6 @@ class PresentationService:
             slide,
             self._wrapped_lines(lines),
             top=1.7,
-            font_size=14,
+            font_size=18,
             max_lines=7,
         )

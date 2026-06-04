@@ -699,17 +699,11 @@ def working_dataframe(df):
 
 
 def reset_workspace():
-    st.session_state.df = None
-    st.session_state.file_name = None
-    st.session_state.data_source = None
-    st.session_state.conversation = []
-    st.session_state.latest_result = None
-    st.session_state.selected_chart_keys = []
-    st.session_state.report_path = None
-    st.session_state.chart_export_warning = False
-    st.session_state.chart_cache_key = None
-    st.session_state.chart_cache = []
-    st.session_state.analysis_cache = {}
+    st.cache_data.clear()
+    st.cache_resource.clear()
+    for key in list(st.session_state.keys()):
+        del st.session_state[key]
+    StateManager.initialize()
 
 
 def render_header(df=None):
@@ -1458,11 +1452,12 @@ def run_agent_workflow(query, df):
     insights = result.get("insights")
     ar = format_agent_value(analysis_res)
     ir = format_agent_value(insights)
-    assistant_reply = (
-        ar
-        if ar is not None and ar != []
-        else (ir if ir is not None and ir != [] else "Analysis complete.")
-    )
+    if ar is not None and ar != [] and ar != "None" and str(ar).strip():
+        assistant_reply = f"Here is the result of your query:\n\n```text\n{ar}\n```"
+    elif ir is not None and ir != [] and ir != "None" and str(ir).strip():
+        assistant_reply = "Analysis complete. I've updated the Insights and Recommendations sections with new findings based on your query."
+    else:
+        assistant_reply = "Analysis complete."
 
     conv = StateManager.get_conversation()
     conv.append({"role": "assistant", "content": str(assistant_reply)})
