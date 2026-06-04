@@ -1,76 +1,103 @@
----
-title: AI Data Analyst
-emoji: 📊
-colorFrom: indigo
-colorTo: purple
-sdk: docker
-pinned: false
-license: apache-2.0
----
+# ⚡ EKPC Load Forecasting using Bidirectional LSTM
 
+An advanced deep learning-based electricity load forecasting system developed using **TensorFlow, Bidirectional LSTM, and Streamlit**.
+This project predicts next-hour electricity demand using historical load patterns and time-series forecasting techniques.
 
-# AI Data Analyst Agent
+# 📌 Project Overview
 
-An autonomous, multi-agent AI data analyst that assesses data quality, profiles datasets, executes pandas code dynamically in a safe evaluation sandbox, creates visualization charts, and generates business reports (PDF & PowerPoint presentations) based on your natural language questions.
+Electricity demand forecasting is critical for:
 
-## Features
-- **Multi-Agent Orchestration**: Powered by a parallelized LangGraph agent graph (`DataQualityAgent`, `ProfilingAgent`, `AnalysisAgent`, `VisualizationAgent`, `InsightAgent`, `RecommendationAgent`).
-- **Flexible UI**: Streamlit web interface with interactive tables, charts, execution trace logging, and PDF/PPTX builders.
-- **Programmatic SDK**: Fully decoupled `sdk/` package allows importing and running sessions directly in Python scripts and Jupyter notebooks.
-- **Support for Multi-format Inputs**: Load datasets via CSV, Excel, JSON, SQLite, or PDF files (via Gemini table parsing).
+- Power system planning
+- Load balancing
+- Energy optimization
+- Grid stability
+- Smart energy management
 
-## Getting Started
+This project uses a **Bidirectional Long Short-Term Memory (BiLSTM)** neural network to accurately forecast electricity load based on historical consumption data.
+The system also includes a professional **Streamlit dashboard** for real-time forecasting and visualization.
 
-### Local Setup
-1. Clone the repository.
-2. Initialize virtual environment and install packages:
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate  # Or `.venv\Scripts\activate` on Windows
-   pip install -r requirements.txt
-   ```
-3. Copy `.env.example` to `.env` and set your `GEMINI_API_KEY`:
-   ```bash
-   cp .env.example .env
-   ```
-4. Run the Streamlit application:
-   ```bash
-   streamlit run app.py
-   ```
+# Deep Learning Architecture
 
-### Docker Setup
-1. Build the image:
-   ```bash
-   docker build -t ai-data-analyst .
-   ```
-2. Run the container:
-   ```bash
-   docker run -p 7860:7860 -e GEMINI_API_KEY="your_api_key_here" ai-data-analyst
-   ```
+The forecasting model uses:
 
-### Programmatic SDK Usage
-```python
-import pandas as pd
-from sdk.client import AIAnalystClient
+- Bidirectional LSTM Layers
+- Dense Neural Layers
+- Dropout Regularization
+- Adam Optimizer
+- EarlyStopping
 
-# Initialize client
-client = AIAnalystClient(api_key="your_gemini_api_key")
+# 📊 Feature Engineering
 
-# Load a local dataset or SQLite database
-df = client.load_data("data/sales.csv")
+The model was trained using:
 
-# Create a session
-session = client.create_session(df, file_name="sales_data")
+- Historical Load Values (EKPC_MW)
+- Rolling Mean (24 Hours)
+- Cyclical Hour Encoding (Hour_sin, Hour_cos)
 
-# Run agentic query analysis
-result = session.analyze("Show average revenue by product line.")
+# 📈 Model Performance
 
-# Export generated documents
-pdf_report = session.export_pdf("outputs/report.pdf")
-ppt_presentation = session.export_presentation("outputs/presentation.pptx")
+| Metric | Value |
+|---|---|
+| MAE | 29.31 |
+| MSE | 1505.41 |
+| RMSE | 38.80 |
+| R² Score | 0.9905 |
+| Accuracy (Within 10%) | 98%+ |
+
+# Interpretation
+
+- The model achieves very high forecasting accuracy.
+- R² Score of 0.9905 indicates excellent learning capability.
+- Low MAE and RMSE values show minimal prediction error.
+- Accuracy within 10% demonstrates reliable real-world forecasting performance.
+
+# Technologies Used
+
+- Python
+- TensorFlow / Keras
+- NumPy
+- Pandas
+- Scikit-learn
+- Streamlit
+- Joblib
+
+# 🚀 Streamlit Application
+
+The Streamlit dashboard allows users to:
+
+- Enter recent electricity load values
+- Predict the next-hour electricity demand
+- View model performance metrics
+- Perform real-time forecasting interactively
+
+## Run the Project
+```text
+Install Requirements
+- pip install -r requirements.txt
+Run Streamlit App
+- streamlit run app.py
+```
+# 📂 Project Structure
+
+```text
+EKPC Load Forecasting using BiLSTM
+│
+├── app.py
+├── train.py
+├── ekpc_usage.csv
+├── load_forecasting_model.keras
+├── scaler.save
+├── metrics.save
+├── requirements.txt
+└── README.md
 ```
 
-## Security & Safety
-- **Safe Evaluation Sandbox**: The code evaluation engine checks the syntax tree using `ast` parser before execution, prohibiting forbidden commands (`exec`, `eval`, `open`, etc.) or module imports (`os`, `sys`, `subprocess`, etc.) to prevent shell escapes or data exposure.
-- **Environment Exclusions**: Local secrets (`.env`) and cache/venv directories are fully ignored by `.gitignore` and `.dockerignore`.
->>>>>>> 59e8bc6 (Initial commit)
+Developed as a deep learning and time-series forecasting project using BiLSTM architecture for electricity demand prediction.
+
+# 🌐 Live Demo
+
+Streamlit App: https://ai-load-forecasting-using-lstm.streamlit.app
+
+# Screenshot
+
+<img width="1374" height="830" alt="Screenshot 2026-05-22 023404" src="https://github.com/user-attachments/assets/8e22f1d0-1c98-455a-91fc-484d30d4706b" />
