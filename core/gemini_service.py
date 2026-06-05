@@ -83,10 +83,10 @@ def generate_text(
 
     last_error = None
 
-    for key in ordered_keys:
-        try:
-            client = genai.Client(api_key=key)
-            for model in _model_chain():
+    for model in _model_chain():
+        for key in ordered_keys:
+            try:
+                client = genai.Client(api_key=key)
                 config_args = {
                     "temperature": temperature,
                     "max_output_tokens": max_output_tokens,
@@ -100,7 +100,6 @@ def generate_text(
 
                 config = types.GenerateContentConfig(**config_args)
 
-                key_failed_or_exhausted = False
                 for attempt in range(GEMINI_MAX_RETRIES + 1):
                     try:
                         response = client.models.generate_content(
@@ -123,28 +122,23 @@ def generate_text(
                         
                         if _is_quota_exhausted(exc):
                             logger.warning(
-                                f"Gemini API key rate-limited/exhausted. Switching key. Error: {exc}"
+                                f"Gemini API key rate-limited/exhausted for model {model}. Switching key. Error: {exc}"
                             )
-                            key_failed_or_exhausted = True
                             break  # Break retry loop to try next API key
                         
                         if not _is_retryable(exc):
                             logger.warning(
-                                f"Gemini API key failed with non-retryable error. Switching key. Error: {exc}"
+                                f"Gemini API key failed with non-retryable error for model {model}. Switching key. Error: {exc}"
                             )
-                            key_failed_or_exhausted = True
                             break  # Break retry loop to try next API key
 
                         if attempt < GEMINI_MAX_RETRIES:
                             delay = min(1.2 * (2 ** attempt), 4.0) + random.uniform(0, 0.35)
                             time.sleep(delay)
-
-                if key_failed_or_exhausted:
-                    break  # Break model loop to try next API key
-        except Exception as key_exc:
-            last_error = key_exc
-            logger.warning(f"Error initializing client or executing key: {key_exc}. Trying next key...")
-            continue
+            except Exception as key_exc:
+                last_error = key_exc
+                logger.warning(f"Error initializing client or executing key for model {model}: {key_exc}. Trying next key...")
+                continue
 
     if last_error:
         raise last_error
@@ -177,50 +171,65 @@ def parse_pdf_to_csv(api_key, pdf_bytes):
 
     last_error = None
 
-    for key in ordered_keys:
-        try:
-            client = genai.Client(api_key=key)
-            for model in _model_chain():
-                try:
-                    response = client.models.generate_content(
-                        model=model,
-                        contents=[
-                            types.Part.from_bytes(
-                                data=pdf_bytes,
-                                mime_type="application/pdf"
-                            ),
-                            prompt
-                        ],
-                        config=types.GenerateContentConfig(
-                            temperature=0.0,
-                            max_output_tokens=8192,
+    for model in _model_chain():
+        for key in ordered_keys:
+            try:
+                client = genai.Client(api_key=key)
+                for attempt in range(GEMINI_MAX_RETRIES + 1):
+                    try:
+                        response = client.models.generate_content(
+                            model=model,
+                            contents=[
+                                types.Part.from_bytes(
+                                    data=pdf_bytes,
+                                    mime_type="application/pdf"
+                                ),
+                                prompt
+                            ],
+                            config=types.GenerateContentConfig(
+                                temperature=0.0,
+                                max_output_tokens=8192,
+                            )
                         )
-                    )
-                    # Success!
-                    _active_key = key
-                    
-                    # Dynamically update config/graph keys to sync application state
-                    import core.config
-                    import orchestrator.graph
-                    core.config.GEMINI_API_KEY = key
-                    orchestrator.graph.GEMINI_API_KEY = key
+                        # Success!
+                        _active_key = key
+                        
+                        # Dynamically update config/graph keys to sync application state
+                        import core.config
+                        import orchestrator.graph
+                        core.config.GEMINI_API_KEY = key
+                        orchestrator.graph.GEMINI_API_KEY = key
 
-                    text = response.text or ""
-                    text = text.strip()
-                    if text.startswith("```csv"):
-                        text = text[6:]
-                    elif text.startswith("```"):
-                        text = text[3:]
-                    if text.endswith("```"):
-                        text = text[:-3]
-                    return text.strip()
-                except Exception as exc:
-                    last_error = exc
-                    logger.warning(f"Gemini API key failed during PDF parsing. Switching key. Error: {exc}")
-                    break  # Break model loop to try next API key
-        except Exception as key_exc:
-            last_error = key_exc
-            continue
+                        text = response.text or ""
+                        text = text.strip()
+                        if text.startswith("```csv"):
+                            text = text[6:]
+                        elif text.startswith("```"):
+                            text = text[3:]
+                        if text.endswith("```"):
+                            text = text[:-3]
+                        return text.strip()
+                    except Exception as exc:
+                        last_error = exc
+                        if _is_quota_exhausted(exc):
+                            logger.warning(
+                                f"Gemini API key rate-limited/exhausted for model {model} during PDF parsing. Switching key. Error: {exc}"
+                            )
+                            break  # Break retry loop to try next API key
+                        
+                        if not _is_retryable(exc):
+                            logger.warning(
+                                f"Gemini API key failed with non-retryable error for model {model} during PDF parsing. Switching key. Error: {exc}"
+                            )
+                            break  # Break retry loop to try next API key
+
+                        if attempt < GEMINI_MAX_RETRIES:
+                            delay = min(1.2 * (2 ** attempt), 4.0) + random.uniform(0, 0.35)
+                            time.sleep(delay)
+            except Exception as key_exc:
+                last_error = key_exc
+                logger.warning(f"Error initializing client or executing key for model {model} during PDF parsing: {key_exc}. Trying next key...")
+                continue
             
     if last_error:
         raise last_error
