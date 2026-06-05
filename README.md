@@ -1,3 +1,13 @@
+---
+title: AI Data Analyst
+emoji: 📊
+colorFrom: indigo
+colorTo: purple
+sdk: docker
+pinned: false
+license: apache-2.0
+---
+
 # 📊 AI Data Analyst Agent
 
 An advanced, autonomous multi-agent data analytics and reporting system developed using **Google Gemini, LangGraph, and Streamlit**.
