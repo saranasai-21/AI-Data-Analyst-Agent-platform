@@ -19,6 +19,12 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
+st.set_page_config(
+    page_title="AI Data Analyst",
+    page_icon=":bar_chart:",
+    layout="wide",
+)
+
 from agents.data_quality_agent import DataQualityAgent
 from agents.profiling_agent import ProfilingAgent
 from core.data_loader import DataLoader
@@ -32,12 +38,6 @@ except ImportError:
         return graph.invoke(state)
 from services.presentation_service import PresentationService
 from services.pdf_service import PDFService
-
-st.set_page_config(
-    page_title="AI Data Analyst",
-    page_icon=":bar_chart:",
-    layout="wide",
-)
 
 os.makedirs("outputs", exist_ok=True)
 os.makedirs("outputs/charts", exist_ok=True)

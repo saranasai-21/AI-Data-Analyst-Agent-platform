@@ -1,4 +1,15 @@
 
+---
+title: AI Data Analyst
+emoji: 📊
+colorFrom: indigo
+colorTo: purple
+sdk: streamlit
+sdk_version: 1.58.0
+app_file: app.py
+pinned: false
+---
+
 # 📊 AI Data Analyst Agent
 
 An advanced, autonomous multi-agent data analytics and reporting system developed using **Google Gemini, LangGraph, and Streamlit**.
