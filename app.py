@@ -804,6 +804,16 @@ def is_identifier_column(name, series):
     return False
 
 
+def safe_to_datetime(series):
+    try:
+        return pd.to_datetime(series, errors="coerce")
+    except Exception:
+        try:
+            return pd.to_datetime(series, errors="coerce", utc=True)
+        except Exception:
+            return pd.Series([pd.NaT] * len(series), index=series.index)
+
+
 def detect_time_columns(df):
     time_cols = []
     date_keywords = ("date", "time", "timestamp", "period", "month", "quarter", "year")
@@ -829,7 +839,7 @@ def detect_time_columns(df):
             continue
 
         should_try = any(token in lower for token in date_keywords)
-        parsed = pd.to_datetime(series, errors="coerce")
+        parsed = safe_to_datetime(series)
         valid_ratio = parsed.notna().mean()
 
         if (should_try and valid_ratio >= 0.4) or valid_ratio >= 0.8:
@@ -1104,7 +1114,7 @@ def build_chart_catalog(df):
 
         if not tmp.empty and tmp["time"].nunique() > 1:
             if time_kind == "datetime":
-                tmp["time"] = pd.to_datetime(tmp["time"], errors="coerce")
+                tmp["time"] = safe_to_datetime(tmp["time"])
                 tmp = tmp.dropna().sort_values("time")
                 if tmp["time"].nunique() > 35:
                     grouped = (
