@@ -33,16 +33,32 @@ class PresentationService:
         prs.slide_height = Inches(7.5)
 
         base_name = os.path.splitext(file_name)[0].replace("_", " ").replace("-", " ").title()
-        insights_title = f"{base_name} Insights" if base_name else "Business Insights"
-        recs_title = f"{base_name} Recommendations" if base_name else "Recommendations"
+        self._current_base_name = base_name
+
+        # Determine dynamic titles based on slide content or uploaded file
+        insights_default = f"{base_name} Insights" if base_name else "Business Insights"
+        recs_default = f"{base_name} Recommendations" if base_name else "Recommendations"
+
+        insights_title = self._determine_slide_title(insights, insights_default)
+        recs_title = self._determine_slide_title(recommendations, recs_default)
 
         self._add_title_slide(prs, file_name)
         self._add_dataset_overview(prs, profile)
         self._add_data_quality_slide(prs, quality_report)
-        self._add_analysis_slide(prs, analysis_result)
-        self._add_visualization_slides(prs, chart_items)
-        self._add_text_slides(prs, insights_title, insights)
-        self._add_text_slides(prs, recs_title, recommendations)
+
+        # Only add slides if they contain valid generated content (skipping placeholders/errors)
+        if self._is_valid_content(analysis_result):
+            self._add_analysis_slide(prs, analysis_result)
+
+        if chart_items:
+            self._add_visualization_slides(prs, chart_items)
+
+        if self._is_valid_content(insights):
+            self._add_text_slides(prs, insights_title, insights)
+
+        if self._is_valid_content(recommendations):
+            self._add_text_slides(prs, recs_title, recommendations)
+
         self._add_conclusion_slide(prs)
 
         prs.save(output_path)
@@ -114,6 +130,68 @@ class PresentationService:
         title = cleaned[0].split(":", 1)[0].strip()
         return title[:74] or fallback
 
+    def _is_valid_content(self, text):
+        if not text:
+            return False
+        if isinstance(text, dict):
+            text = text.get("result", "")
+        if not isinstance(text, str):
+            return True  # fallback for dataframe/series objects
+            
+        lower_text = text.strip().lower()
+        placeholders = [
+            "no ai insights generated yet",
+            "no ai recommendations generated yet",
+            "no ai analysis generated yet",
+            "no details were generated for this section",
+            "generation failed",
+            "temporarily unavailable",
+            "name 'len' is not defined",
+            "is not defined",
+            "error during analysis",
+            "none",
+            "null"
+        ]
+        for placeholder in placeholders:
+            if placeholder in lower_text:
+                return False
+                
+        cleaned = self._clean_text(text)
+        if not cleaned:
+            return False
+            
+        return True
+
+    def _determine_slide_title(self, text, default_title):
+        if not text:
+            return default_title
+        if isinstance(text, dict):
+            text = text.get("result", "")
+        if not isinstance(text, str):
+            return default_title
+            
+        # Try to find a markdown header (# Header, ## Header, ### Header)
+        match = re.search(r'^\s*#+\s*(.+)$', text, re.MULTILINE)
+        if match:
+            candidate = match.group(1).strip()
+            candidate = re.sub(r"\*\*(.*?)\*\*", r"\1", candidate)
+            candidate = re.sub(r"\*(.*?)\*", r"\1", candidate)
+            candidate = re.sub(r"`([^`]*)`", r"\1", candidate)
+            candidate = candidate.strip(":- ")
+            if candidate and len(candidate) < 60:
+                return candidate
+                
+        # If no markdown header, look at the first line of cleaned text
+        cleaned_lines = self._clean_text(text)
+        if cleaned_lines:
+            first_line = cleaned_lines[0]
+            if not first_line.startswith("-") and len(first_line) < 60:
+                candidate = first_line.split(":", 1)[0].strip()
+                if candidate and len(candidate) > 3 and len(candidate) < 50:
+                    return candidate
+                    
+        return default_title
+
     def _wrapped_lines(self, lines, width=88):
         # Do not physically wrap — let PPTX word_wrap handle layout.
         return lines
@@ -142,13 +220,8 @@ class PresentationService:
         # hundredths of a point
         spcPts.set("val", str(int(pt_value * 100)))
 
-    def _add_body_lines(self, slide, lines, top=1.22, font_size=17, max_lines=14):
-        box = slide.shapes.add_textbox(
-            Inches(0.85),
-            Inches(top),
-            Inches(11.7),
-            Inches(5.35),
-        )
+    def _add_textbox_column(self, slide, lines, left, top, width, height, computed_font_size, space_after):
+        box = slide.shapes.add_textbox(left, top, width, height)
         frame = box.text_frame
         frame.clear()
         frame.word_wrap = True
@@ -158,24 +231,8 @@ class PresentationService:
         frame.margin_top = Inches(0.05)
         frame.margin_bottom = Inches(0.05)
 
-        total_lines = len(lines[:max_lines])
-        if total_lines <= 12:
-            computed_font_size = 17
-            space_after = 10
-        elif total_lines <= 20:
-            computed_font_size = 14
-            space_after = 6
-        elif total_lines <= 30:
-            computed_font_size = 12
-            space_after = 4
-        else:
-            computed_font_size = 10
-            space_after = 2
-
-        for i, line in enumerate(lines[:max_lines]):
-            # First paragraph already exists; add new ones for subsequent lines
+        for i, line in enumerate(lines):
             p_obj = frame.paragraphs[0] if i == 0 else frame.add_paragraph()
-            # p_obj is a pptx _Paragraph — get the underlying lxml element
             p_elem = p_obj._p
 
             is_bullet = line.startswith("- ")
@@ -194,6 +251,7 @@ class PresentationService:
                     first_line_emu=0,
                 )
 
+            p_obj.font.name = "Arial"
             p_obj.font.size = Pt(computed_font_size)
             p_obj.font.color.rgb = RGBColor(31, 41, 55)
             self._set_para_space_after(p_elem, pt_value=space_after)
@@ -201,6 +259,91 @@ class PresentationService:
             if not is_bullet and not line.startswith("  ") and len(line) < 58:
                 p_obj.font.bold = True
                 p_obj.font.color.rgb = RGBColor(22, 83, 126)
+
+    def _add_body_lines(self, slide, lines, top=1.22, font_size=17, max_lines=14):
+        # Truncate lines to prevent overflow
+        lines = lines[:40]
+
+        if len(lines) <= 8:
+            # Single column layout for shorter text
+            computed_font_size = 16
+            space_after = 10
+            self._add_textbox_column(
+                slide,
+                lines,
+                left=Inches(0.85),
+                top=Inches(top),
+                width=Inches(11.7),
+                height=Inches(5.35),
+                computed_font_size=computed_font_size,
+                space_after=space_after
+            )
+        else:
+            # Group lines by heading to keep headings and their bullets in the same column
+            groups = []
+            current_group = []
+            for line in lines:
+                is_bullet = line.startswith("- ")
+                is_heading = not is_bullet and not line.startswith("  ") and len(line) < 58
+                
+                if is_heading:
+                    if current_group:
+                        groups.append(current_group)
+                    current_group = [line]
+                else:
+                    if current_group and not current_group[0].startswith("- "):
+                        current_group.append(line)
+                    else:
+                        if current_group:
+                            groups.append(current_group)
+                        current_group = [line]
+            if current_group:
+                groups.append(current_group)
+
+            # Balanced distribution between two columns
+            col1 = []
+            col2 = []
+            for group in groups:
+                if len(col1) <= len(col2):
+                    col1.extend(group)
+                else:
+                    col2.extend(group)
+
+            max_col_lines = max(len(col1), len(col2))
+            if max_col_lines <= 8:
+                computed_font_size = 15
+                space_after = 8
+            elif max_col_lines <= 12:
+                computed_font_size = 13
+                space_after = 6
+            elif max_col_lines <= 18:
+                computed_font_size = 11
+                space_after = 4
+            else:
+                computed_font_size = 9.5
+                space_after = 2
+
+            self._add_textbox_column(
+                slide,
+                col1,
+                left=Inches(0.85),
+                top=Inches(top),
+                width=Inches(5.6),
+                height=Inches(5.35),
+                computed_font_size=computed_font_size,
+                space_after=space_after
+            )
+            if col2:
+                self._add_textbox_column(
+                    slide,
+                    col2,
+                    left=Inches(6.85),
+                    top=Inches(top),
+                    width=Inches(5.6),
+                    height=Inches(5.35),
+                    computed_font_size=computed_font_size,
+                    space_after=space_after
+                )
 
     def _add_title_slide(self, prs, file_name):
         slide = self._blank_slide(prs, "AI Data Analyst Report")
@@ -277,7 +420,14 @@ class PresentationService:
         else:
             result_text = analysis_result
 
-        self._add_text_slides(prs, "Analysis Results", result_text)
+        if not self._is_valid_content(result_text):
+            return
+
+        base_name = getattr(self, "_current_base_name", "")
+        analysis_default = f"{base_name} Analysis" if base_name else "Analysis Results"
+        analysis_title = self._determine_slide_title(result_text, analysis_default)
+
+        self._add_text_slides(prs, analysis_title, result_text)
 
     def _add_visualization_slides(self, prs, chart_items=None):
         if not chart_items:
@@ -324,12 +474,21 @@ class PresentationService:
             p.alignment = PP_ALIGN.CENTER
 
     def _add_text_slides(self, prs, title, text):
+        if not self._is_valid_content(text):
+            return
+
         lines = self._clean_text(text)
         if not lines:
-            lines = ["No details were generated for this section."]
+            return
 
-        slide = self._blank_slide(prs, title)
-        self._add_body_lines(slide, lines, font_size=17, max_lines=50)
+        # Avoid duplicating the title in the body lines
+        first_line_clean = re.sub(r'^#+\s*', '', lines[0]).strip(":- ")
+        if first_line_clean.lower() == title.lower() or title.lower() in first_line_clean.lower() and len(first_line_clean) < 60:
+            lines = lines[1:]
+
+        if lines:
+            slide = self._blank_slide(prs, title)
+            self._add_body_lines(slide, lines, top=1.22, max_lines=50)
 
     def _add_conclusion_slide(self, prs):
         slide = self._blank_slide(prs, "Conclusion")
