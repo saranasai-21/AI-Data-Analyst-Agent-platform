@@ -131,12 +131,35 @@ class PresentationService:
         return title[:74] or fallback
 
     def _is_valid_content(self, text):
-        if not text:
+        if text is None:
             return False
+            
+        # Handle pandas DataFrame / Series safely to avoid truthiness errors
+        if isinstance(text, (pd.DataFrame, pd.Series)):
+            return not text.empty
+            
         if isinstance(text, dict):
             text = text.get("result", "")
+            
+        # Re-check in case the dictionary returned a DataFrame or Series
+        if isinstance(text, (pd.DataFrame, pd.Series)):
+            return not text.empty
+            
+        if text is None:
+            return False
+
+        # If it's not a string, check if it's truthy, otherwise convert to string
         if not isinstance(text, str):
-            return True  # fallback for dataframe/series objects
+            try:
+                # Try simple comparison, if it fails, default to True (meaning it exists)
+                if not text:
+                    return False
+            except Exception:
+                pass
+            try:
+                text = str(text)
+            except Exception:
+                return True
             
         lower_text = text.strip().lower()
         placeholders = [
@@ -163,10 +186,23 @@ class PresentationService:
         return True
 
     def _determine_slide_title(self, text, default_title):
-        if not text:
+        if text is None:
             return default_title
+            
+        # Handle pandas DataFrame / Series safely to avoid truthiness errors
+        if isinstance(text, (pd.DataFrame, pd.Series)):
+            return default_title
+            
         if isinstance(text, dict):
             text = text.get("result", "")
+            
+        # Re-check in case the dictionary returned a DataFrame or Series
+        if isinstance(text, (pd.DataFrame, pd.Series)):
+            return default_title
+            
+        if text is None:
+            return default_title
+            
         if not isinstance(text, str):
             return default_title
             
