@@ -1863,8 +1863,6 @@ def render_report(df, charts, profile, quality_report):
     insights = latest.get("insights", "No AI insights generated yet.")
     recommendations = latest.get("recommendations", "No AI recommendations generated yet.")
     analysis_result = latest.get("analysis_result", {"result": "No AI analysis generated yet."})
-    query = latest.get("query", "No query provided.")
-    dataset_summary = latest.get("dataset_summary", "No dataset summary available.")
 
     col_btn_ppt, col_btn_pdf = st.columns(2)
     with col_btn_ppt:
@@ -1875,19 +1873,16 @@ def render_report(df, charts, profile, quality_report):
             ]
             prs = PresentationService()
             output_name = safe_filename(StateManager.get_file_name() or "AI_Report")
-            with st.spinner("Generating Report Deck with AI... This may take up to a minute."):
-                report_path = prs.create_report(
-                    file_name=StateManager.get_file_name() or "dataset",
-                    profile=report_profile,
-                    quality_report=report_quality,
-                    analysis_result=analysis_result,
-                    insights=insights,
-                    recommendations=recommendations,
-                    chart_items=chart_items,
-                    query=query,
-                    dataset_summary=dataset_summary,
-                    output_path=f"outputs/{output_name}.pptx",
-                )
+            report_path = prs.create_report(
+                file_name=StateManager.get_file_name() or "dataset",
+                profile=report_profile,
+                quality_report=report_quality,
+                analysis_result=analysis_result,
+                insights=insights,
+                recommendations=recommendations,
+                chart_items=chart_items,
+                output_path=f"outputs/{output_name}.pptx",
+            )
             st.session_state.report_path = report_path
             st.success("PPT report built.")
 

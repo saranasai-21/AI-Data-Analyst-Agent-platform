@@ -5,7 +5,7 @@ import pandas as pd
 from pptx import Presentation
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
-from pptx.enum.text import PP_ALIGN, MSO_AUTO_SIZE, PP_PARAGRAPH_ALIGNMENT
+from pptx.enum.text import PP_ALIGN, MSO_AUTO_SIZE
 from pptx.oxml.ns import qn
 from pptx.util import Inches, Pt, Emu
 from lxml import etree
@@ -26,8 +26,6 @@ class PresentationService:
         insights,
         recommendations,
         chart_items=None,
-        query=None,
-        dataset_summary=None,
         output_path="outputs/AI_Report.pptx"
     ):
         prs = Presentation()
@@ -37,121 +35,35 @@ class PresentationService:
         base_name = os.path.splitext(file_name)[0].replace("_", " ").replace("-", " ").title()
         self._current_base_name = base_name
 
-        from agents.report_agent import ReportAgent
-        from core.config import GEMINI_API_KEY
-        
-        report_agent = ReportAgent(GEMINI_API_KEY)
-        report_sections = report_agent.generate_full_report_sections(
-            query=query or "", 
-            dataset_summary=dataset_summary or "", 
-            analysis_result=analysis_result or ""
-        )
+        # Determine dynamic titles based on slide content or uploaded file
+        insights_default = f"{base_name} Insights" if base_name else "Business Insights"
+        recs_default = f"{base_name} Recommendations" if base_name else "Recommendations"
+
+        insights_title = self._determine_slide_title(insights, insights_default)
+        recs_title = self._determine_slide_title(recommendations, recs_default)
 
         self._add_title_slide(prs, file_name)
+        self._add_dataset_overview(prs, profile)
+        self._add_data_quality_slide(prs, quality_report)
 
-        # Executive Summary
-        self._add_json_section_slides(prs, "Executive Summary", report_sections.get("Executive Summary", {}))
-        
-        # Key Findings
-        self._add_json_section_slides(prs, "Key Findings", report_sections.get("Key Findings", {}))
-        
-        # Trends
-        self._add_json_section_slides(prs, "Trends", report_sections.get("Trends", {}))
-        
-        # Opportunities
-        self._add_json_section_slides(prs, "Opportunities", report_sections.get("Opportunities", {}))
-        
-        # Risks
-        self._add_json_section_slides(prs, "Risks", report_sections.get("Risks", {}))
-        
-        # Recommendations
-        self._add_json_section_slides(prs, "Recommendations", report_sections.get("Recommendations", {}))
+        # Only add slides if they contain valid generated content (skipping placeholders/errors)
+        if self._is_valid_content(analysis_result):
+            self._add_analysis_slide(prs, analysis_result)
 
-        # Visual Evidence (Charts)
         if chart_items:
-            # Add up to 3 charts max as requested "select only top 2-3 charts"
-            self._add_visualization_slides(prs, chart_items[:3])
+            self._add_visualization_slides(prs, chart_items)
 
-        # Conclusion
-        self._add_json_section_slides(prs, "Conclusion", report_sections.get("Conclusion", {}))
+        if self._is_valid_content(insights):
+            self._add_text_slides(prs, insights_title, insights)
+
+        if self._is_valid_content(recommendations):
+            self._add_text_slides(prs, recs_title, recommendations)
+
+        self._add_conclusion_slide(prs)
 
         self._remove_empty_slides(prs)
         prs.save(output_path)
         return output_path
-
-    def _add_json_section_slides(self, prs, section_name, section_data):
-        if not section_data or "slides" not in section_data:
-            return
-            
-        IMAGE_MAP = {
-            "Executive Summary": "assets/executive.png",
-            "Key Findings": "assets/findings.png",
-            "Trends": "assets/trends.png",
-            "Opportunities": "assets/opportunities.png",
-            "Risks": "assets/risks.png",
-            "Recommendations": "assets/strategy.png",
-            "Conclusion": "assets/conclusion.png"
-        }
-            
-        for slide_data in section_data["slides"]:
-            title = slide_data.get("title", "")
-            bullets = slide_data.get("bullets", [])
-            
-            # Ensure bullets have the proper prefix for _add_textbox_column
-            formatted_bullets = []
-            for b in bullets:
-                if not b.startswith("- "):
-                    formatted_bullets.append(f"- {b}")
-                else:
-                    formatted_bullets.append(b)
-            
-            slide = self._blank_slide(prs, title)
-            
-            image_path = IMAGE_MAP.get(section_name)
-            
-            if image_path and os.path.exists(image_path):
-                # Layout Option 1: Image on left, text on right
-                try:
-                    slide.shapes.add_picture(
-                        image_path,
-                        Inches(0.5),
-                        Inches(1.5),
-                        width=Inches(3.8)
-                    )
-                    
-                    self._add_textbox_column(
-                        slide,
-                        formatted_bullets,
-                        left=Inches(4.6),
-                        top=Inches(1.2),
-                        width=Inches(8.0),
-                        height=Inches(5.5),
-                        computed_font_size=20,
-                        space_after=0.25
-                    )
-                except Exception:
-                    # Fallback if image corrupt
-                    self._add_textbox_column(
-                        slide,
-                        formatted_bullets,
-                        left=Inches(0.65),
-                        top=Inches(1.2),
-                        width=Inches(12.0),
-                        height=Inches(5.5),
-                        computed_font_size=20,
-                        space_after=0.25
-                    )
-            else:
-                self._add_textbox_column(
-                    slide,
-                    formatted_bullets,
-                    left=Inches(0.65),
-                    top=Inches(1.2),
-                    width=Inches(12.0),
-                    height=Inches(5.5),
-                    computed_font_size=20,
-                    space_after=0.25
-                )
 
     def _blank_slide(self, prs, title):
         slide = prs.slides.add_slide(prs.slide_layouts[6])
@@ -376,7 +288,6 @@ class PresentationService:
             is_bullet = clean_line.startswith("- ")
             if is_bullet:
                 p_obj.text = clean_line[2:]
-                p_obj.level = 0
                 self._set_para_indent(
                     p_elem,
                     left_emu=Inches(0.35),
@@ -393,11 +304,6 @@ class PresentationService:
             p_obj.font.name = "Arial"
             p_obj.font.size = Pt(computed_font_size)
             p_obj.font.color.rgb = RGBColor(31, 41, 55)
-            if is_bullet:
-                p_obj.alignment = PP_PARAGRAPH_ALIGNMENT.LEFT
-            else:
-                p_obj.alignment = PP_PARAGRAPH_ALIGNMENT.JUSTIFY
-                
             self._set_para_space_after(p_elem, pt_value=space_after)
 
             if not is_bullet and not clean_line.startswith("  ") and len(clean_line) < 58:
