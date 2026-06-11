@@ -481,6 +481,7 @@ st.markdown(
         border-radius: 12px !important;
         padding: 0.75rem !important;
         box-shadow: var(--shadow) !important;
+        height: 450px !important;
     }}
 
     /* Table Styling for Markdown Outputs */
