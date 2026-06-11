@@ -483,7 +483,7 @@ class PresentationService:
         if not chart_items:
             return
 
-        for i, item in enumerate(chart_items[:6], start=1):
+        for i, item in enumerate(chart_items[:3], start=1):
             try:
                 path, title, caption = item
             except Exception:
@@ -540,11 +540,45 @@ class PresentationService:
 
         heading_patterns = [
             r'^#{1,4}\s+(.+)$',
+            r'^\*+\s*(.+?)\*+:\s*$',
+            r'^\*+\s*(.+?)\*+\s*$',
             r'^\*\*(.+?)\*\*$',
             r'^\*\*(.+?):\*\*$'
         ]
 
         def extract_heading(line):
+            # Clean string from typical markdown heading/list characters
+            clean = re.sub(r"[\*\#\-\:\`\_\(\)]", "", line).strip()
+            
+            known_titles = {
+                "executive summary": "Executive Summary",
+                "key findings": "Key Findings",
+                "trends": "Trends",
+                "opportunities": "Opportunities",
+                "risks": "Risks",
+                "strategic recommendations": "Strategic Recommendations",
+                "immediate actions": "Immediate Actions (This Week)",
+                "immediate actions this week": "Immediate Actions (This Week)",
+                "business improvements": "Business Improvements",
+                "growth opportunities": "Growth Opportunities",
+                "risk mitigation": "Risk Mitigation",
+                "conclusion": "Conclusion",
+                "dataset overview": "Dataset Overview",
+                "data quality assessment": "Data Quality Assessment",
+                "analysis results": "Analysis Results",
+                "business insights": "Business Insights"
+            }
+            
+            clean_lower = clean.lower()
+            if clean_lower in known_titles:
+                return known_titles[clean_lower]
+                
+            # Check for case-insensitive partial match of length-bounded strings
+            for key, val in known_titles.items():
+                if len(clean_lower) >= len(key) - 2 and (key in clean_lower or clean_lower in key):
+                    if len(clean) < 50:
+                        return val
+
             for pattern in heading_patterns:
                 match = re.match(pattern, line)
                 if match:
