@@ -99,6 +99,10 @@ def generate_text(
                     )
 
                 config = types.GenerateContentConfig(**config_args)
+                
+                # Append instruction to avoid conversational greetings
+                if isinstance(prompt, str):
+                    prompt += "\n\nIMPORTANT INSTRUCTION: DO NOT include conversational greetings (e.g. 'Good morning', 'Hello') or pleasantries in your response. Output only the requested analysis or insights."
 
                 for attempt in range(GEMINI_MAX_RETRIES + 1):
                     try:

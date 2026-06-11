@@ -488,16 +488,16 @@ class PresentationService:
             try:
                 slide.shapes.add_picture(
                     path,
-                    Inches(1.0),
-                    Inches(1.15),
-                    width=Inches(11.3),
+                    Inches(2.16),
+                    Inches(1.25),
+                    width=Inches(9.0),
                 )
             except Exception:
                 continue
 
             cap = slide.shapes.add_textbox(
                 Inches(1.0),
-                Inches(6.25),
+                Inches(6.45),
                 Inches(11.3),
                 Inches(0.55),
             )
@@ -522,9 +522,15 @@ class PresentationService:
         if first_line_clean.lower() == title.lower() or title.lower() in first_line_clean.lower() and len(first_line_clean) < 60:
             lines = lines[1:]
 
-        if lines:
-            slide = self._blank_slide(prs, title)
-            self._add_body_lines(slide, lines, top=1.22, max_lines=50)
+        if not lines:
+            return
+
+        chunk_size = 8
+        for i in range(0, len(lines), chunk_size):
+            chunk = lines[i:i + chunk_size]
+            current_title = title if i == 0 else f"{title} (Continued)"
+            slide = self._blank_slide(prs, current_title)
+            self._add_body_lines(slide, chunk, top=1.22, max_lines=chunk_size)
 
     def _add_conclusion_slide(self, prs):
         slide = self._blank_slide(prs, "Conclusion")
