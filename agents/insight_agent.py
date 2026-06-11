@@ -65,7 +65,7 @@ Use only facts from the dataset summary and analysis output above. Be direct and
                     analysis_result,
                 ),
                 temperature=0.15,
-                max_output_tokens=1400,
+                max_output_tokens=3000,
             )
 
         except Exception as e:

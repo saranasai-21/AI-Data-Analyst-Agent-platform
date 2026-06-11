@@ -71,7 +71,7 @@ Be direct, specific and data-driven. Reference actual column names and values wh
                     insights,
                 ),
                 temperature=0.15,
-                max_output_tokens=1200,
+                max_output_tokens=3000,
             )
 
         except Exception as e:

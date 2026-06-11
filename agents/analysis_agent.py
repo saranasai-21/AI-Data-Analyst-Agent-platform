@@ -47,6 +47,8 @@ Rules:
 
 result
 
+8. Do NOT truncate or limit results using .head() or similar methods unless specifically requested by the user. Always return the full matching dataset.
+
 Examples:
 
 result = df["Sales"].mean()

@@ -481,7 +481,7 @@ st.markdown(
         border-radius: 12px !important;
         padding: 0.75rem !important;
         box-shadow: var(--shadow) !important;
-        height: 450px !important;
+        height: 480px !important;
     }}
 
     /* Table Styling for Markdown Outputs */
@@ -968,6 +968,7 @@ def strongest_corr_pair(df, numeric_cols):
 
 def style_chart(fig):
     fig.update_layout(
+        title=None,
         template="plotly_dark",
         colorway=CHART_COLORS,
         font=dict(color=INK, family="Inter, Segoe UI, Arial", size=13),
@@ -1405,7 +1406,7 @@ def format_agent_value(value):
         except Exception:
             return str(value)
     if isinstance(value, pd.DataFrame):
-        return value.head(12).to_dict()
+        return value.head(60).to_dict()
     return str(value)
 
 
@@ -1476,7 +1477,7 @@ def run_agent_workflow(query, df):
                 "Format any numbers, lists, or tables beautifully using Markdown. Do NOT include raw Python dictionaries or arrays. "
                 "Answer directly without mentioning 'the system' or your internal data sources."
             )
-            assistant_reply = generate_text(GEMINI_API_KEY, prompt, max_output_tokens=700)
+            assistant_reply = generate_text(GEMINI_API_KEY, prompt, max_output_tokens=4096)
         except Exception:
             assistant_reply = f"Here is the result of your query:\n\n```text\n{ar}\n```"
     elif ir is not None and ir != [] and ir != "None" and str(ir).strip():
