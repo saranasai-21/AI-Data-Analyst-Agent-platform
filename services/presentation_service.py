@@ -5,7 +5,7 @@ import pandas as pd
 from pptx import Presentation
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
-from pptx.enum.text import PP_ALIGN
+from pptx.enum.text import PP_ALIGN, MSO_AUTO_SIZE
 from pptx.oxml.ns import qn
 from pptx.util import Inches, Pt, Emu
 from lxml import etree
@@ -32,13 +32,17 @@ class PresentationService:
         prs.slide_width = Inches(13.333)
         prs.slide_height = Inches(7.5)
 
+        base_name = os.path.splitext(file_name)[0].replace("_", " ").replace("-", " ").title()
+        insights_title = f"{base_name} Insights" if base_name else "Business Insights"
+        recs_title = f"{base_name} Recommendations" if base_name else "Recommendations"
+
         self._add_title_slide(prs, file_name)
         self._add_dataset_overview(prs, profile)
         self._add_data_quality_slide(prs, quality_report)
         self._add_analysis_slide(prs, analysis_result)
         self._add_visualization_slides(prs, chart_items)
-        self._add_text_slides(prs, "Business Insights", insights)
-        self._add_text_slides(prs, "Recommendations", recommendations)
+        self._add_text_slides(prs, insights_title, insights)
+        self._add_text_slides(prs, recs_title, recommendations)
         self._add_conclusion_slide(prs)
 
         prs.save(output_path)
@@ -148,6 +152,7 @@ class PresentationService:
         frame = box.text_frame
         frame.clear()
         frame.word_wrap = True
+        frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
         frame.margin_left = Inches(0.08)
         frame.margin_right = Inches(0.08)
         frame.margin_top = Inches(0.05)
@@ -309,17 +314,8 @@ class PresentationService:
         if not lines:
             lines = ["No details were generated for this section."]
 
-        # 6 paragraphs/bullets per slide keeps content within the textbox height
-        chunk_size = 6
-        chunks = [
-            lines[i:i + chunk_size]
-            for i in range(0, len(lines), chunk_size)
-        ]
-
-        for index, chunk in enumerate(chunks[:6], start=1):
-            slide_title = title if index == 1 else f"{title} Continued"
-            slide = self._blank_slide(prs, slide_title)
-            self._add_body_lines(slide, chunk, font_size=17, max_lines=chunk_size)
+        slide = self._blank_slide(prs, title)
+        self._add_body_lines(slide, lines, font_size=17, max_lines=50)
 
     def _add_conclusion_slide(self, prs):
         slide = self._blank_slide(prs, "Conclusion")
