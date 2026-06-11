@@ -970,7 +970,7 @@ def strongest_corr_pair(df, numeric_cols):
 
 def style_chart(fig):
     fig.update_layout(
-        title=None,
+        title_text="",
         template="plotly_dark",
         colorway=CHART_COLORS,
         font=dict(color=INK, family="Inter, Segoe UI, Arial", size=13),
@@ -1470,14 +1470,17 @@ def run_agent_workflow(query, df):
         try:
             from core.gemini_service import generate_text
             from core.config import GEMINI_API_KEY
+            file_name = StateManager.get_file_name() or "the uploaded dataset"
             prompt = (
+                f"You are an expert Data Analyst presenting to business stakeholders.\n"
                 f"The user asked: '{query}'.\n\n"
-                f"The system computed this raw data result: {ar}\n\n"
-                f"The system also generated these comprehensive dataset insights:\n{ir}\n\n"
-                "Please provide a clear, readable, and highly comprehensive natural language answer to the user's question. "
-                "Draw from both the specific data result and the broader insights to provide a deep, detailed analysis. "
+                f"File analyzed: {file_name}\n"
+                f"The computed raw data result: {ar}\n\n"
+                f"The generated comprehensive dataset insights:\n{ir}\n\n"
+                "Please provide a clear, accurate, and highly comprehensive natural language answer to the business stakeholders. "
+                "Draw from the specific data result and the broader insights to provide a deep, detailed analysis, and include relevant context about the uploaded file. "
                 "Format any numbers, lists, or tables beautifully using Markdown. Do NOT include raw Python dictionaries or arrays. "
-                "Answer directly without mentioning 'the system' or your internal data sources."
+                "Answer directly and professionally without mentioning 'the system' or your internal data sources."
             )
             assistant_reply = generate_text(GEMINI_API_KEY, prompt, max_output_tokens=4096)
         except Exception:
