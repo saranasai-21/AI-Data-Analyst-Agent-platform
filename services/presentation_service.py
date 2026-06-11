@@ -61,6 +61,7 @@ class PresentationService:
 
         self._add_conclusion_slide(prs)
 
+        self._remove_empty_slides(prs)
         prs.save(output_path)
         return output_path
 
@@ -79,8 +80,12 @@ class PresentationService:
         frame = title_box.text_frame
         frame.clear()
         p = frame.paragraphs[0]
-        p.text = str(title)
-        p.font.size = Pt(28 if len(str(title)) <= 42 else 23)
+        # Clean title of any markdown artifacts
+        clean_title = str(title)
+        clean_title = re.sub(r"\*\*(.*?)\*\*", r"\1", clean_title)
+        clean_title = re.sub(r"^#+\s*", "", clean_title).strip(":- ")
+        p.text = clean_title
+        p.font.size = Pt(28 if len(clean_title) <= 42 else 23)
         p.font.bold = True
         p.font.color.rgb = RGBColor(18, 48, 74)
         return slide
@@ -95,7 +100,6 @@ class PresentationService:
         else:
             text = str(value)
 
-        text = re.sub(r"\*\*(.*?)\*\*", r"\1", text)
         text = re.sub(r"`([^`]*)`", r"\1", text)
         text = text.replace("Ã¢â‚¬Â¢", "-")
         text = text.replace("\u00e2\u0080\u0093", "-")
@@ -173,7 +177,13 @@ class PresentationService:
             "is not defined",
             "error during analysis",
             "none",
-            "null"
+            "null",
+            "traceback",
+            "exception",
+            "error",
+            "unterminated string literal",
+            "syntaxerror",
+            "nameerror",
         ]
         for placeholder in placeholders:
             if placeholder in lower_text:
@@ -271,16 +281,20 @@ class PresentationService:
             p_obj = frame.paragraphs[0] if i == 0 else frame.add_paragraph()
             p_elem = p_obj._p
 
-            is_bullet = line.startswith("- ")
+            # Clean any remaining markdown bold markers or headers
+            clean_line = re.sub(r"\*\*(.*?)\*\*", r"\1", line)
+            clean_line = re.sub(r"^#+\s*", "", clean_line)
+
+            is_bullet = clean_line.startswith("- ")
             if is_bullet:
-                p_obj.text = line[2:]
+                p_obj.text = clean_line[2:]
                 self._set_para_indent(
                     p_elem,
                     left_emu=Inches(0.35),
                     first_line_emu=-Inches(0.20),
                 )
             else:
-                p_obj.text = line
+                p_obj.text = clean_line
                 self._set_para_indent(
                     p_elem,
                     left_emu=Inches(0.15),
@@ -292,7 +306,7 @@ class PresentationService:
             p_obj.font.color.rgb = RGBColor(31, 41, 55)
             self._set_para_space_after(p_elem, pt_value=space_after)
 
-            if not is_bullet and not line.startswith("  ") and len(line) < 58:
+            if not is_bullet and not clean_line.startswith("  ") and len(clean_line) < 58:
                 p_obj.font.bold = True
                 p_obj.font.color.rgb = RGBColor(22, 83, 126)
 
@@ -504,7 +518,10 @@ class PresentationService:
             frame = cap.text_frame
             frame.clear()
             p = frame.paragraphs[0]
-            p.text = self._clean_text(caption)[0] if self._clean_text(caption) else str(title)
+            display_caption = self._clean_text(caption)[0] if self._clean_text(caption) else str(title)
+            display_caption = re.sub(r"\*\*(.*?)\*\*", r"\1", display_caption)
+            display_caption = re.sub(r"^#+\s*", "", display_caption)
+            p.text = display_caption
             p.font.size = Pt(13)
             p.font.color.rgb = RGBColor(66, 97, 117)
             p.alignment = PP_ALIGN.CENTER
@@ -518,55 +535,60 @@ class PresentationService:
             return
 
         sections = []
-        current_section_title = title
-        current_section_lines = []
+        current_title = title
+        current_lines = []
 
-        def get_heading(line):
-            import re
-            m1 = re.match(r'^#{1,4}\s+(.+)$', line)
-            if m1:
-                return m1.group(1).strip()
-            m2 = re.match(r'^\*\*(.+?):\*\*\s*$', line)
-            if m2:
-                return m2.group(1).strip()
-            m3 = re.match(r'^\*\*(.+?)\*\*\s*$', line)
-            if m3:
-                return m3.group(1).strip()
+        heading_patterns = [
+            r'^#{1,4}\s+(.+)$',
+            r'^\*\*(.+?)\*\*$',
+            r'^\*\*(.+?):\*\*$'
+        ]
+
+        def extract_heading(line):
+            for pattern in heading_patterns:
+                match = re.match(pattern, line)
+                if match:
+                    heading = match.group(1).strip()
+                    if len(heading) < 80:
+                        return heading
             return None
 
         for line in lines:
-            heading = get_heading(line)
-            if heading and len(heading) < 60:
-                if current_section_lines:
-                    sections.append((current_section_title, current_section_lines))
-                # Only use the heading if it makes sense
-                if title.lower() in heading.lower():
-                    current_section_title = heading
-                elif heading.lower() in title.lower():
-                    current_section_title = title
-                else:
-                    current_section_title = f"{title} - {heading}"
-                current_section_lines = []
+            heading = extract_heading(line)
+            if heading:
+                if current_lines:
+                    sections.append((current_title, current_lines))
+                current_title = heading
+                current_lines = []
             else:
-                # avoid duplicating the title in the very first line of a section
-                import re
+                # avoid duplicating the section title in the very first line of a section
                 clean_line = re.sub(r'^#+\s*', '', line).strip(":- ")
-                if not current_section_lines and (clean_line.lower() == current_section_title.lower() or current_section_title.lower() in clean_line.lower()):
+                clean_line = re.sub(r"\*\*(.*?)\*\*", r"\1", clean_line)
+                if not current_lines and (
+                    clean_line.lower() == current_title.lower() or
+                    current_title.lower() in clean_line.lower() or
+                    clean_line.lower() in current_title.lower()
+                ):
                     continue
-                current_section_lines.append(line)
-                
-        if current_section_lines:
-            sections.append((current_section_title, current_section_lines))
-            
-        chunk_size = 8
-        for sec_title, sec_lines in sections:
-            if not sec_lines:
+                current_lines.append(line)
+
+        if current_lines:
+            sections.append((current_title, current_lines))
+
+        for section_title, section_lines in sections:
+            if not section_lines:
                 continue
-            for i in range(0, len(sec_lines), chunk_size):
-                chunk = sec_lines[i:i + chunk_size]
-                current_title = sec_title if i == 0 else f"{sec_title} (Continued)"
-                slide = self._blank_slide(prs, current_title)
-                self._add_body_lines(slide, chunk, top=1.22, max_lines=chunk_size)
+
+            chunks = self._split_section_into_chunks(section_lines, max_chars=1200)
+
+            for idx, chunk in enumerate(chunks):
+                slide_title = (
+                    section_title
+                    if idx == 0
+                    else f"{section_title} (Continued)"
+                )
+                slide = self._blank_slide(prs, slide_title)
+                self._add_body_lines(slide, chunk, top=1.22)
 
     def _add_conclusion_slide(self, prs):
         slide = self._blank_slide(prs, "Conclusion")
@@ -585,3 +607,47 @@ class PresentationService:
             font_size=18,
             max_lines=7,
         )
+
+    def _split_section_into_chunks(self, lines, max_chars=1200):
+        """
+        Split a section into multiple slides only if it becomes too large.
+        Keeps headings together.
+        """
+        chunks = []
+        current_chunk = []
+        current_size = 0
+
+        for line in lines:
+            line_size = len(line)
+
+            if current_size + line_size > max_chars and current_chunk:
+                chunks.append(current_chunk)
+                current_chunk = [line]
+                current_size = line_size
+            else:
+                current_chunk.append(line)
+                current_size += line_size
+
+        if current_chunk:
+            chunks.append(current_chunk)
+
+        return chunks
+
+    def _remove_empty_slides(self, prs):
+        slides_to_delete = []
+        for idx, slide in enumerate(prs.slides):
+            text_found = False
+            for shape in slide.shapes:
+                if hasattr(shape, "text"):
+                    txt = shape.text.strip()
+                    if len(txt) > 5:
+                        text_found = True
+                        break
+            if not text_found:
+                slides_to_delete.append(idx)
+
+        for idx in reversed(slides_to_delete):
+            slide_id = prs.slides._sldIdLst[idx]
+            rel_id = slide_id.rId
+            prs.part.drop_rel(rel_id)
+            del prs.slides._sldIdLst[idx]
