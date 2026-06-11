@@ -158,6 +158,20 @@ class PresentationService:
         frame.margin_top = Inches(0.05)
         frame.margin_bottom = Inches(0.05)
 
+        total_lines = len(lines[:max_lines])
+        if total_lines <= 12:
+            computed_font_size = 17
+            space_after = 10
+        elif total_lines <= 20:
+            computed_font_size = 14
+            space_after = 6
+        elif total_lines <= 30:
+            computed_font_size = 12
+            space_after = 4
+        else:
+            computed_font_size = 10
+            space_after = 2
+
         for i, line in enumerate(lines[:max_lines]):
             # First paragraph already exists; add new ones for subsequent lines
             p_obj = frame.paragraphs[0] if i == 0 else frame.add_paragraph()
@@ -180,9 +194,9 @@ class PresentationService:
                     first_line_emu=0,
                 )
 
-            p_obj.font.size = Pt(font_size)
+            p_obj.font.size = Pt(computed_font_size)
             p_obj.font.color.rgb = RGBColor(31, 41, 55)
-            self._set_para_space_after(p_elem, pt_value=10)
+            self._set_para_space_after(p_elem, pt_value=space_after)
 
             if not is_bullet and not line.startswith("  ") and len(line) < 58:
                 p_obj.font.bold = True
