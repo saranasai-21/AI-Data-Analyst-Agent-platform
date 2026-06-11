@@ -689,6 +689,8 @@ def uploaded_source(uploaded_file):
         return "Excel"
     if ext == ".json":
         return "JSON"
+    if ext == ".pdf":
+        return "PDF"
 
     return "Unknown"
 
@@ -1406,7 +1408,7 @@ def format_agent_value(value):
         except Exception:
             return str(value)
     if isinstance(value, pd.DataFrame):
-        return value.head(60).to_dict()
+        return value.to_dict()
     return str(value)
 
 
@@ -1502,8 +1504,8 @@ def render_upload():
         st.markdown('<div class="section-label">Dataset Intake</div>', unsafe_allow_html=True)
         uploaded_file = st.file_uploader(
             "Dataset file",
-            type=("csv", "xlsx", "xls", "json", "db", "sqlite", "sqlite3"),
-            help="CSV, Excel, JSON, and SQLite files are supported.",
+            type=("csv", "xlsx", "xls", "json", "db", "sqlite", "sqlite3", "pdf"),
+            help="CSV, Excel, JSON, SQLite, and PDF files are supported.",
         )
 
         query = None
@@ -1533,6 +1535,15 @@ def render_upload():
                             os.remove(tmp_path)
                 elif source_type in ("CSV", "Excel", "JSON"):
                     df = DataLoader.load_file(uploaded_file)
+                elif source_type == "PDF":
+                    with st.spinner("Extracting tabular dataset from PDF via Gemini..."):
+                        from core.gemini_service import parse_pdf_to_csv
+                        from core.config import GEMINI_API_KEY
+                        if not GEMINI_API_KEY:
+                            raise ValueError("GEMINI_API_KEY is not configured. An API key is required to parse PDF tables.")
+                        csv_text = parse_pdf_to_csv(GEMINI_API_KEY, uploaded_file.read())
+                        import io
+                        df = pd.read_csv(io.StringIO(csv_text))
                 else:
                     raise ValueError("Unsupported file type.")
 
@@ -1557,7 +1568,7 @@ def render_upload():
         st.markdown('<div class="section-label">Workspace Snapshot</div>', unsafe_allow_html=True)
         c1, c2 = st.columns(2)
         with c1:
-            render_status("Formats", "CSV, Excel, JSON", "SQLite is available for query-based intake.")
+            render_status("Formats", "CSV, Excel, JSON, PDF", "SQLite is available for query-based intake.")
         with c2:
             render_status("Output", "PPT report", "Selected charts are included in the export.")
 
