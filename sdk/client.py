@@ -42,4 +42,6 @@ class AIAnalystClient:
         """
         Spawns a stateful AnalysisSession for a loaded DataFrame.
         """
+        df = df.copy()
+        df.columns = [str(col).strip().replace("\r", "").replace("\n", "") for col in df.columns]
         return AnalysisSession(self, df, file_name)

@@ -581,7 +581,7 @@ def unique_columns(columns):
     fixed = []
 
     for col in columns:
-        name = str(col)
+        name = str(col).strip().replace("\r", "").replace("\n", "")
         count = seen.get(name, 0)
         fixed.append(name if count == 0 else f"{name}_{count + 1}")
         seen[name] = count + 1
