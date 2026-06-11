@@ -60,6 +60,8 @@ Rules:
 
 fig
 
+8. If a column represents numeric values but contains symbols or formats (e.g. percentages like '85%', or rates/ratios like '2 / 14'), clean the values (e.g. stripping '%', extracting numeric parts, or evaluating fractions) and convert them to numeric type using pd.to_numeric before plotting.
+
 Examples:
 
 fig = px.bar(
@@ -121,6 +123,15 @@ Return code only.
             df
         )
 
+    def _build_column_context(self, df):
+        lines = []
+        for col in df.columns:
+            dtype = str(df[col].dtype)
+            non_null_samples = df[col].dropna().unique()[:3]
+            samples_str = ", ".join(repr(s) for s in non_null_samples)
+            lines.append(f"- {col} (type: {dtype}, samples: [{samples_str}])")
+        return "\n".join(lines)
+
     def run(
         self,
         query,
@@ -130,11 +141,12 @@ Return code only.
 
         try:
 
+            column_context = self._build_column_context(df)
             code = self.generate_code(
 
                 query=query,
 
-                columns=list(df.columns),
+                columns=column_context,
 
                 conversation=conversation
 
