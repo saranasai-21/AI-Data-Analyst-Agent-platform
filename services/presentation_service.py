@@ -1,3 +1,14 @@
+"""
+PresentationService -- executive-quality PowerPoint report generator.
+
+Visual design:
+  - Dark title stripe with small icon badge
+  - Native PowerPoint bullets (fragments, not sentences)
+  - Colored metric cards for Key Findings
+  - Automatic overflow pagination
+  - Junk-slide removal
+"""
+
 import os
 import re
 
@@ -7,681 +18,462 @@ from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
 from pptx.enum.text import PP_ALIGN, MSO_AUTO_SIZE
 from pptx.oxml.ns import qn
-from pptx.util import Inches, Pt, Emu
+from pptx.util import Inches, Pt
 from lxml import etree
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# Design tokens
+# ═══════════════════════════════════════════════════════════════════════════
+
+_BG               = RGBColor(248, 251, 255)
+_TITLE_BAR        = RGBColor(18, 48, 74)
+_TITLE_TEXT       = RGBColor(255, 255, 255)
+_SUBTITLE_COLOR   = RGBColor(66, 97, 117)
+_BULLET_COLOR     = RGBColor(31, 41, 55)
+_ACCENT_FILL      = RGBColor(232, 247, 255)
+_ACCENT_BORDER    = RGBColor(169, 215, 239)
+_HIGHLIGHT        = RGBColor(22, 119, 201)
+
+_FONT             = "Arial"
+_TITLE_PT         = Pt(26)
+_BULLET_PT        = Pt(18)
+_CAPTION_PT       = Pt(13)
+_SPACE_AFTER      = 8        # points between bullets
+_MAX_BULLETS      = 6        # overflow threshold
+
+# Card colours (rotate through these for visual variety)
+_CARD_COLORS = [
+    (RGBColor(232, 247, 255), RGBColor(22, 119, 201)),   # light-blue bg, blue text
+    (RGBColor(230, 255, 237), RGBColor(21, 128, 61)),     # light-green bg, green text
+    (RGBColor(254, 243, 199), RGBColor(180, 83, 9)),      # light-amber bg, amber text
+    (RGBColor(237, 233, 254), RGBColor(109, 40, 217)),    # light-purple bg, purple text
+    (RGBColor(255, 228, 230), RGBColor(190, 18, 60)),     # light-rose bg, rose text
+    (RGBColor(224, 242, 254), RGBColor(3, 105, 161)),     # light-sky bg, sky text
+]
+
+# Section → icon path
+_ICON_MAP = {
+    "Executive Summary":         "assets/icon_summary.png",
+    "Key Findings":              "assets/icon_findings.png",
+    "Trends":                    "assets/icon_trends.png",
+    "Opportunities":             "assets/icon_opportunities.png",
+    "Risks":                     "assets/icon_risks.png",
+    "Strategic Recommendations": "assets/icon_strategy.png",
+    "Conclusion":                "assets/icon_conclusion.png",
+}
+
+# Junk markers for cleanup
+_JUNK = [
+    "no ai insights generated", "no ai recommendations generated",
+    "no ai analysis generated", "generation failed",
+    "temporarily unavailable", "traceback", "exception",
+    "syntaxerror", "nameerror", "unterminated string", "is not defined",
+]
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Service
+# ═══════════════════════════════════════════════════════════════════════════
+
+
 class PresentationService:
+    """Builds executive-quality PPTX reports from structured JSON."""
 
     def __init__(self):
         os.makedirs("outputs", exist_ok=True)
         os.makedirs("outputs/charts", exist_ok=True)
 
+    # ──────────────────────────────────────────────────────────────────
+    # Public API
+    # ──────────────────────────────────────────────────────────────────
+
     def create_report(
         self,
-        file_name,
-        profile,
-        quality_report,
+        file_name: str,
+        profile: dict,
+        quality_report: dict,
         analysis_result,
         insights,
         recommendations,
         chart_items=None,
-        output_path="outputs/AI_Report.pptx"
-    ):
+        query: str | None = None,
+        dataset_summary: str | None = None,
+        output_path: str = "outputs/AI_Report.pptx",
+    ) -> str:
         prs = Presentation()
         prs.slide_width = Inches(13.333)
         prs.slide_height = Inches(7.5)
 
-        base_name = os.path.splitext(file_name)[0].replace("_", " ").replace("-", " ").title()
-        self._current_base_name = base_name
+        self._base_name = (
+            os.path.splitext(file_name)[0]
+            .replace("_", " ").replace("-", " ").title()
+        )
 
-        # Determine dynamic titles based on slide content or uploaded file
-        insights_default = f"{base_name} Insights" if base_name else "Business Insights"
-        recs_default = f"{base_name} Recommendations" if base_name else "Recommendations"
+        # -- Generate structured JSON via ReportAgent --
+        from agents.report_agent import ReportAgent
+        from core.config import GEMINI_API_KEY
 
-        insights_title = self._determine_slide_title(insights, insights_default)
-        recs_title = self._determine_slide_title(recommendations, recs_default)
+        sections = ReportAgent(GEMINI_API_KEY).generate_full_report_sections(
+            query=query or "",
+            dataset_summary=dataset_summary or "",
+            analysis_result=str(analysis_result) if analysis_result else "",
+        )
 
-        self._add_title_slide(prs, file_name)
-        self._add_dataset_overview(prs, profile)
-        self._add_data_quality_slide(prs, quality_report)
+        # -- Assemble deck --
+        self._title_slide(prs, file_name)
 
-        # Only add slides if they contain valid generated content (skipping placeholders/errors)
-        if self._is_valid_content(analysis_result):
-            self._add_analysis_slide(prs, analysis_result)
+        for name in [
+            "Executive Summary", "Key Findings", "Trends",
+            "Opportunities", "Risks", "Strategic Recommendations",
+        ]:
+            self._section_slides(prs, name, sections.get(name, {}))
 
         if chart_items:
-            self._add_visualization_slides(prs, chart_items)
+            self._chart_slides(prs, chart_items[:3])
 
-        if self._is_valid_content(insights):
-            self._add_text_slides(prs, insights_title, insights)
+        self._section_slides(prs, "Conclusion", sections.get("Conclusion", {}))
 
-        if self._is_valid_content(recommendations):
-            self._add_text_slides(prs, recs_title, recommendations)
-
-        self._add_conclusion_slide(prs)
-
-        self._remove_empty_slides(prs)
+        self._remove_junk(prs)
         prs.save(output_path)
         return output_path
 
-    def _blank_slide(self, prs, title):
-        slide = prs.slides.add_slide(prs.slide_layouts[6])
-        background = slide.background.fill
-        background.solid()
-        background.fore_color.rgb = RGBColor(248, 251, 255)
+    # ──────────────────────────────────────────────────────────────────
+    # Section → slides
+    # ──────────────────────────────────────────────────────────────────
 
-        title_box = slide.shapes.add_textbox(
-            Inches(0.65),
-            Inches(0.35),
-            Inches(12),
-            Inches(0.65),
-        )
-        frame = title_box.text_frame
-        frame.clear()
-        p = frame.paragraphs[0]
-        # Clean title of any markdown artifacts
-        clean_title = str(title)
-        clean_title = re.sub(r"\*\*(.*?)\*\*", r"\1", clean_title)
-        clean_title = re.sub(r"^#+\s*", "", clean_title).strip(":- ")
-        p.text = clean_title
-        p.font.size = Pt(28 if len(clean_title) <= 42 else 23)
-        p.font.bold = True
-        p.font.color.rgb = RGBColor(18, 48, 74)
-        return slide
+    def _section_slides(self, prs, section_name: str, data: dict):
+        if not data or "slides" not in data:
+            return
 
-    def _clean_text(self, value):
-        if value is None:
-            text = ""
-        elif isinstance(value, pd.DataFrame):
-            text = value.head(20).to_string(index=True)
-        elif isinstance(value, pd.Series):
-            text = value.head(30).to_string()
-        else:
-            text = str(value)
+        for slide_obj in data["slides"]:
+            title = _clean(slide_obj.get("title", section_name))
 
-        text = re.sub(r"`([^`]*)`", r"\1", text)
-        text = text.replace("Ã¢â‚¬Â¢", "-")
-        text = text.replace("\u00e2\u0080\u0093", "-")
-        text = text.replace("\u00e2\u0080\u0094", "-")
-        text = text.replace("\u2022", "-")
-        text = re.sub(
-            r"(Insight|Recommendation|Finding)\s+generation failed:\s+503.*",
-            (
-                r"\1 generation is temporarily unavailable because the AI model "
-                "endpoint is under high demand. Please retry this section."
-            ),
-            text,
-            flags=re.IGNORECASE | re.DOTALL,
-        )
-
-        lines = []
-        for raw in text.splitlines():
-            line = raw.strip()
-            if not line:
+            # Card-based slide (Key Findings)
+            cards = slide_obj.get("cards")
+            if cards:
+                slide = self._make_slide(prs, title, section_name)
+                self._render_cards(slide, cards)
                 continue
-            line = re.sub(r"^[\-\*\u2022]\s*", "- ", line)
-            line = re.sub(r"^\d+[\.\)]\s*", "- ", line)
-            lines.append(line)
 
-        return lines
+            # Bullet-based slide
+            bullets = _clean_bullets(slide_obj.get("bullets", []))
+            if not bullets:
+                continue
 
-    def _title_from_caption(self, caption, fallback):
-        cleaned = self._clean_text(caption)
-        if not cleaned:
-            return fallback
+            chunks = [bullets[i:i + _MAX_BULLETS] for i in range(0, len(bullets), _MAX_BULLETS)]
+            for page, chunk in enumerate(chunks):
+                t = title if page == 0 else f"{title} (Continued)"
+                slide = self._make_slide(prs, t, section_name)
+                self._render_bullets(slide, chunk)
 
-        title = cleaned[0].split(":", 1)[0].strip()
-        return title[:74] or fallback
+    # ──────────────────────────────────────────────────────────────────
+    # Slide factory
+    # ──────────────────────────────────────────────────────────────────
 
-    def _is_valid_content(self, text):
-        if text is None:
-            return False
-            
-        # Handle pandas DataFrame / Series safely to avoid truthiness errors
-        if isinstance(text, (pd.DataFrame, pd.Series)):
-            return not text.empty
-            
-        if isinstance(text, dict):
-            text = text.get("result", "")
-            
-        # Re-check in case the dictionary returned a DataFrame or Series
-        if isinstance(text, (pd.DataFrame, pd.Series)):
-            return not text.empty
-            
-        if text is None:
-            return False
+    def _make_slide(self, prs, title: str, section_name: str = ""):
+        slide = prs.slides.add_slide(prs.slide_layouts[6])
 
-        # If it's not a string, check if it's truthy, otherwise convert to string
-        if not isinstance(text, str):
+        # Background
+        bg = slide.background.fill
+        bg.solid()
+        bg.fore_color.rgb = _BG
+
+        # Title bar
+        bar = slide.shapes.add_shape(
+            MSO_SHAPE.RECTANGLE,
+            Inches(0), Inches(0), Inches(13.333), Inches(1.0),
+        )
+        bar.fill.solid()
+        bar.fill.fore_color.rgb = _TITLE_BAR
+        bar.line.fill.background()
+
+        # Icon badge in title bar
+        icon_path = _ICON_MAP.get(section_name)
+        icon_left = Inches(0.45)
+        text_left = Inches(0.65)
+
+        if icon_path and os.path.exists(icon_path):
             try:
-                # Try simple comparison, if it fails, default to True (meaning it exists)
-                if not text:
-                    return False
+                slide.shapes.add_picture(
+                    icon_path,
+                    Inches(0.35), Inches(0.12),
+                    width=Inches(0.75),
+                )
+                text_left = Inches(1.25)
             except Exception:
                 pass
-            try:
-                text = str(text)
-            except Exception:
-                return True
-            
-        lower_text = text.strip().lower()
-        placeholders = [
-            "no ai insights generated yet",
-            "no ai recommendations generated yet",
-            "no ai analysis generated yet",
-            "no details were generated for this section",
-            "generation failed",
-            "temporarily unavailable",
-            "name 'len' is not defined",
-            "is not defined",
-            "error during analysis",
-            "none",
-            "null",
-            "traceback",
-            "exception",
-            "error",
-            "unterminated string literal",
-            "syntaxerror",
-            "nameerror",
-        ]
-        for placeholder in placeholders:
-            if placeholder in lower_text:
-                return False
-                
-        cleaned = self._clean_text(text)
-        if not cleaned:
-            return False
-            
-        return True
 
-    def _determine_slide_title(self, text, default_title):
-        if text is None:
-            return default_title
-            
-        # Handle pandas DataFrame / Series safely to avoid truthiness errors
-        if isinstance(text, (pd.DataFrame, pd.Series)):
-            return default_title
-            
-        if isinstance(text, dict):
-            text = text.get("result", "")
-            
-        # Re-check in case the dictionary returned a DataFrame or Series
-        if isinstance(text, (pd.DataFrame, pd.Series)):
-            return default_title
-            
-        if text is None:
-            return default_title
-            
-        if not isinstance(text, str):
-            return default_title
-            
-        # Try to find a markdown header (# Header, ## Header, ### Header)
-        match = re.search(r'^\s*#+\s*(.+)$', text, re.MULTILINE)
-        if match:
-            candidate = match.group(1).strip()
-            candidate = re.sub(r"\*\*(.*?)\*\*", r"\1", candidate)
-            candidate = re.sub(r"\*(.*?)\*", r"\1", candidate)
-            candidate = re.sub(r"`([^`]*)`", r"\1", candidate)
-            candidate = candidate.strip(":- ")
-            if candidate and len(candidate) < 60:
-                return candidate
-                
-        # If no markdown header, look at the first line of cleaned text
-        cleaned_lines = self._clean_text(text)
-        if cleaned_lines:
-            first_line = cleaned_lines[0]
-            if not first_line.startswith("-") and len(first_line) < 60:
-                candidate = first_line.split(":", 1)[0].strip()
-                if candidate and len(candidate) > 3 and len(candidate) < 50:
-                    return candidate
-                    
-        return default_title
+        # Title text
+        tbox = slide.shapes.add_textbox(text_left, Inches(0.15), Inches(11.5), Inches(0.7))
+        tf = tbox.text_frame
+        tf.clear()
+        p = tf.paragraphs[0]
+        p.text = title
+        p.font.size = _TITLE_PT
+        p.font.bold = True
+        p.font.color.rgb = _TITLE_TEXT
+        p.font.name = _FONT
 
-    def _wrapped_lines(self, lines, width=88):
-        # Do not physically wrap — let PPTX word_wrap handle layout.
-        return lines
+        return slide
 
-    def _set_para_indent(self, para_elem, left_emu, first_line_emu=0):
-        """Set left_indent and first_line_indent on a CT_P (lxml element)."""
-        pPr = para_elem.find(qn("a:pPr"))
-        if pPr is None:
-            pPr = etree.SubElement(para_elem, qn("a:pPr"))
-            para_elem.insert(0, pPr)
-        pPr.set("marL", str(int(left_emu)))
-        pPr.set("indent", str(int(first_line_emu)))
+    # ──────────────────────────────────────────────────────────────────
+    # Bullet renderer
+    # ──────────────────────────────────────────────────────────────────
 
-    def _set_para_space_after(self, para_elem, pt_value):
-        """Set spaceAft on a CT_P element in hundredths of a point."""
-        pPr = para_elem.find(qn("a:pPr"))
-        if pPr is None:
-            pPr = etree.SubElement(para_elem, qn("a:pPr"))
-            para_elem.insert(0, pPr)
-        spcAft = pPr.find(qn("a:spcAft"))
-        if spcAft is None:
-            spcAft = etree.SubElement(pPr, qn("a:spcAft"))
-        spcPts = spcAft.find(qn("a:spcPts"))
-        if spcPts is None:
-            spcPts = etree.SubElement(spcAft, qn("a:spcPts"))
-        # hundredths of a point
-        spcPts.set("val", str(int(pt_value * 100)))
-
-    def _add_textbox_column(self, slide, lines, left, top, width, height, computed_font_size, space_after):
-        box = slide.shapes.add_textbox(left, top, width, height)
-        frame = box.text_frame
-        frame.clear()
-        frame.word_wrap = True
-        frame.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
-        frame.margin_left = Inches(0.08)
-        frame.margin_right = Inches(0.08)
-        frame.margin_top = Inches(0.05)
-        frame.margin_bottom = Inches(0.05)
-
-        for i, line in enumerate(lines):
-            p_obj = frame.paragraphs[0] if i == 0 else frame.add_paragraph()
-            p_elem = p_obj._p
-
-            # Clean any remaining markdown bold markers or headers
-            clean_line = re.sub(r"\*\*(.*?)\*\*", r"\1", line)
-            clean_line = re.sub(r"^#+\s*", "", clean_line)
-
-            is_bullet = clean_line.startswith("- ")
-            if is_bullet:
-                p_obj.text = clean_line[2:]
-                self._set_para_indent(
-                    p_elem,
-                    left_emu=Inches(0.35),
-                    first_line_emu=-Inches(0.20),
-                )
-            else:
-                p_obj.text = clean_line
-                self._set_para_indent(
-                    p_elem,
-                    left_emu=Inches(0.15),
-                    first_line_emu=0,
-                )
-
-            p_obj.font.name = "Arial"
-            p_obj.font.size = Pt(computed_font_size)
-            p_obj.font.color.rgb = RGBColor(31, 41, 55)
-            self._set_para_space_after(p_elem, pt_value=space_after)
-
-            if not is_bullet and not clean_line.startswith("  ") and len(clean_line) < 58:
-                p_obj.font.bold = True
-                p_obj.font.color.rgb = RGBColor(22, 83, 126)
-
-    def _add_body_lines(self, slide, lines, top=1.22, font_size=17, max_lines=14):
-        # Truncate lines to prevent overflow
-        lines = lines[:40]
-
-        if len(lines) <= 8:
-            # Single column layout for shorter text
-            computed_font_size = 16
-            space_after = 10
-            self._add_textbox_column(
-                slide,
-                lines,
-                left=Inches(0.85),
-                top=Inches(top),
-                width=Inches(11.7),
-                height=Inches(5.35),
-                computed_font_size=computed_font_size,
-                space_after=space_after
-            )
-        else:
-            # Group lines by heading to keep headings and their bullets in the same column
-            groups = []
-            current_group = []
-            for line in lines:
-                is_bullet = line.startswith("- ")
-                is_heading = not is_bullet and not line.startswith("  ") and len(line) < 58
-                
-                if is_heading:
-                    if current_group:
-                        groups.append(current_group)
-                    current_group = [line]
-                else:
-                    if current_group and not current_group[0].startswith("- "):
-                        current_group.append(line)
-                    else:
-                        if current_group:
-                            groups.append(current_group)
-                        current_group = [line]
-            if current_group:
-                groups.append(current_group)
-
-            # Balanced distribution between two columns
-            col1 = []
-            col2 = []
-            for group in groups:
-                if len(col1) <= len(col2):
-                    col1.extend(group)
-                else:
-                    col2.extend(group)
-
-            max_col_lines = max(len(col1), len(col2))
-            if max_col_lines <= 8:
-                computed_font_size = 15
-                space_after = 8
-            elif max_col_lines <= 12:
-                computed_font_size = 13
-                space_after = 6
-            elif max_col_lines <= 18:
-                computed_font_size = 11
-                space_after = 4
-            else:
-                computed_font_size = 9.5
-                space_after = 2
-
-            self._add_textbox_column(
-                slide,
-                col1,
-                left=Inches(0.85),
-                top=Inches(top),
-                width=Inches(5.6),
-                height=Inches(5.35),
-                computed_font_size=computed_font_size,
-                space_after=space_after
-            )
-            if col2:
-                self._add_textbox_column(
-                    slide,
-                    col2,
-                    left=Inches(6.85),
-                    top=Inches(top),
-                    width=Inches(5.6),
-                    height=Inches(5.35),
-                    computed_font_size=computed_font_size,
-                    space_after=space_after
-                )
-
-    def _add_title_slide(self, prs, file_name):
-        slide = self._blank_slide(prs, "AI Data Analyst Report")
-        subtitle = slide.shapes.add_textbox(
-            Inches(0.9),
-            Inches(1.55),
-            Inches(11.4),
-            Inches(0.7),
+    def _render_bullets(self, slide, bullets: list[str]):
+        box = slide.shapes.add_textbox(
+            Inches(1.0), Inches(1.4), Inches(11.3), Inches(5.5),
         )
-        frame = subtitle.text_frame
-        frame.clear()
-        p = frame.paragraphs[0]
+        tf = box.text_frame
+        tf.clear()
+        tf.word_wrap = True
+        tf.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+        tf.margin_left = Inches(0.15)
+        tf.margin_right = Inches(0.15)
+        tf.margin_top = Inches(0.1)
+        tf.margin_bottom = Inches(0.1)
+
+        for idx, text in enumerate(bullets):
+            p = tf.paragraphs[0] if idx == 0 else tf.add_paragraph()
+            p.text = text
+            p.level = 0
+            p.alignment = PP_ALIGN.LEFT
+            p.font.name = _FONT
+            p.font.size = _BULLET_PT
+            p.font.color.rgb = _BULLET_COLOR
+            _set_indent(p._p, Inches(0.4), -Inches(0.25))
+            _set_spacing(p._p, _SPACE_AFTER)
+
+    # ──────────────────────────────────────────────────────────────────
+    # Metric card renderer
+    # ──────────────────────────────────────────────────────────────────
+
+    def _render_cards(self, slide, cards: list[dict]):
+        """Render colored metric cards in a responsive grid."""
+        n = len(cards)
+        cols = 3 if n > 4 else 2
+        rows = (n + cols - 1) // cols
+
+        card_w = Inches(3.4)
+        card_h = Inches(1.6)
+        gap_x = Inches(0.4)
+        gap_y = Inches(0.35)
+
+        grid_w = cols * card_w + (cols - 1) * gap_x
+        start_x = (Inches(13.333) - grid_w) / 2
+        start_y = Inches(1.5)
+
+        for i, card in enumerate(cards):
+            row = i // cols
+            col = i % cols
+
+            x = start_x + col * (card_w + gap_x)
+            y = start_y + row * (card_h + gap_y)
+
+            bg_color, text_color = _CARD_COLORS[i % len(_CARD_COLORS)]
+
+            # Card shape
+            rect = slide.shapes.add_shape(
+                MSO_SHAPE.ROUNDED_RECTANGLE, int(x), int(y), int(card_w), int(card_h),
+            )
+            rect.fill.solid()
+            rect.fill.fore_color.rgb = bg_color
+            rect.line.color.rgb = text_color
+            rect.line.width = Pt(1.5)
+
+            # Label
+            label_box = slide.shapes.add_textbox(
+                int(x + Inches(0.2)),
+                int(y + Inches(0.2)),
+                int(card_w - Inches(0.4)),
+                int(Inches(0.55)),
+            )
+            tf = label_box.text_frame
+            tf.clear()
+            tf.word_wrap = True
+            p = tf.paragraphs[0]
+            p.text = card.get("label", "")
+            p.font.size = Pt(14)
+            p.font.bold = True
+            p.font.color.rgb = _SUBTITLE_COLOR
+            p.font.name = _FONT
+            p.alignment = PP_ALIGN.LEFT
+
+            # Value
+            val_box = slide.shapes.add_textbox(
+                int(x + Inches(0.2)),
+                int(y + Inches(0.7)),
+                int(card_w - Inches(0.4)),
+                int(Inches(0.7)),
+            )
+            tf = val_box.text_frame
+            tf.clear()
+            tf.word_wrap = True
+            p = tf.paragraphs[0]
+            p.text = card.get("value", "")
+            p.font.size = Pt(28)
+            p.font.bold = True
+            p.font.color.rgb = text_color
+            p.font.name = _FONT
+            p.alignment = PP_ALIGN.LEFT
+
+    # ──────────────────────────────────────────────────────────────────
+    # Title slide
+    # ──────────────────────────────────────────────────────────────────
+
+    def _title_slide(self, prs, file_name: str):
+        slide = self._make_slide(prs, "AI Data Analyst Report")
+
+        sub = slide.shapes.add_textbox(
+            Inches(0.9), Inches(1.55), Inches(11.4), Inches(0.7),
+        )
+        tf = sub.text_frame
+        tf.clear()
+        p = tf.paragraphs[0]
         p.text = f"Dataset: {file_name}"
         p.font.size = Pt(22)
-        p.font.color.rgb = RGBColor(66, 97, 117)
+        p.font.color.rgb = _SUBTITLE_COLOR
+        p.font.name = _FONT
 
         accent = slide.shapes.add_shape(
             MSO_SHAPE.RECTANGLE,
-            Inches(0.9),
-            Inches(2.7),
-            Inches(11.3),
-            Inches(2.7),
+            Inches(0.9), Inches(2.7), Inches(11.3), Inches(2.7),
         )
         accent.fill.solid()
-        accent.fill.fore_color.rgb = RGBColor(232, 247, 255)
-        accent.line.color.rgb = RGBColor(169, 215, 239)
+        accent.fill.fore_color.rgb = _ACCENT_FILL
+        accent.line.color.rgb = _ACCENT_BORDER
 
-        label = slide.shapes.add_textbox(
-            Inches(1.25),
-            Inches(3.25),
-            Inches(10.6),
-            Inches(1.3),
+        lbl = slide.shapes.add_textbox(
+            Inches(1.25), Inches(3.25), Inches(10.6), Inches(1.3),
         )
-        frame = label.text_frame
-        frame.clear()
-        p = frame.paragraphs[0]
-        p.text = "Automated profile, insights, recommendations, and selected visual evidence"
+        tf = lbl.text_frame
+        tf.clear()
+        p = tf.paragraphs[0]
+        p.text = (
+            "Automated profiling, insights, recommendations, "
+            "and selected visual evidence"
+        )
         p.font.size = Pt(24)
         p.font.bold = True
-        p.font.color.rgb = RGBColor(22, 119, 201)
+        p.font.color.rgb = _HIGHLIGHT
+        p.font.name = _FONT
         p.alignment = PP_ALIGN.CENTER
 
-    def _add_dataset_overview(self, prs, profile):
-        slide = self._blank_slide(prs, "Dataset Overview")
-        rows = profile.get("rows", 0)
-        columns = profile.get("columns", 0)
-        duplicates = profile.get("duplicates", 0)
-        column_names = profile.get("column_names", [])
-        lines = [
-            f"Rows: {rows}",
-            f"Columns: {columns}",
-            f"Duplicate rows: {duplicates}",
-            f"Important columns preview: {', '.join(column_names[:12])}",
-        ]
-        self._add_body_lines(slide, self._wrapped_lines(lines), font_size=17, max_lines=12)
+    # ──────────────────────────────────────────────────────────────────
+    # Chart slides
+    # ──────────────────────────────────────────────────────────────────
 
-    def _add_data_quality_slide(self, prs, quality_report):
-        slide = self._blank_slide(prs, "Data Quality Assessment")
-        duplicates = quality_report.get("duplicates", 0)
-        constant_columns = len(quality_report.get("constant_columns", []))
-        high_cardinality = len(quality_report.get("high_cardinality", {}))
-        missing_values = sum(quality_report.get("missing_values", {}).values())
-        lines = [
-            f"Duplicate rows: {duplicates}",
-            f"Missing values: {missing_values}",
-            f"Constant columns: {constant_columns}",
-            f"High-cardinality columns: {high_cardinality}",
-        ]
-        self._add_body_lines(slide, self._wrapped_lines(lines), font_size=17, max_lines=12)
-
-    def _add_analysis_slide(self, prs, analysis_result):
-        if isinstance(analysis_result, dict):
-            result_text = analysis_result.get("result", "")
-        else:
-            result_text = analysis_result
-
-        if not self._is_valid_content(result_text):
-            return
-
-        base_name = getattr(self, "_current_base_name", "")
-        analysis_default = f"{base_name} Analysis" if base_name else "Analysis Results"
-        analysis_title = self._determine_slide_title(result_text, analysis_default)
-
-        self._add_text_slides(prs, analysis_title, result_text)
-
-    def _add_visualization_slides(self, prs, chart_items=None):
-        if not chart_items:
-            return
-
-        for i, item in enumerate(chart_items[:3], start=1):
-            try:
-                path, title, caption = item
-            except Exception:
-                try:
-                    path, caption = item
-                    title = self._title_from_caption(caption, f"Visualization {i}")
-                except Exception:
-                    path = item
-                    title = f"Visualization {i}"
-                    caption = ""
-
+    def _chart_slides(self, prs, items: list):
+        for i, item in enumerate(items, 1):
+            path, title, caption = _unpack_chart(item, i)
             if not path or not os.path.exists(path):
                 continue
 
-            slide = self._blank_slide(prs, title)
+            slide = self._make_slide(prs, title, "")
             try:
                 slide.shapes.add_picture(
-                    path,
-                    Inches(2.16),
-                    Inches(1.25),
-                    width=Inches(9.0),
+                    path, Inches(2.16), Inches(1.25), width=Inches(9.0),
                 )
             except Exception:
                 continue
 
             cap = slide.shapes.add_textbox(
-                Inches(1.0),
-                Inches(6.45),
-                Inches(11.3),
-                Inches(0.55),
+                Inches(1.0), Inches(6.45), Inches(11.3), Inches(0.55),
             )
-            frame = cap.text_frame
-            frame.clear()
-            p = frame.paragraphs[0]
-            display_caption = self._clean_text(caption)[0] if self._clean_text(caption) else str(title)
-            display_caption = re.sub(r"\*\*(.*?)\*\*", r"\1", display_caption)
-            display_caption = re.sub(r"^#+\s*", "", display_caption)
-            p.text = display_caption
-            p.font.size = Pt(13)
-            p.font.color.rgb = RGBColor(66, 97, 117)
+            tf = cap.text_frame
+            tf.clear()
+            p = tf.paragraphs[0]
+            p.text = _clean(caption) if caption else title
+            p.font.size = _CAPTION_PT
+            p.font.color.rgb = _SUBTITLE_COLOR
+            p.font.name = _FONT
             p.alignment = PP_ALIGN.CENTER
 
-    def _add_text_slides(self, prs, title, text):
-        if not self._is_valid_content(text):
-            return
+    # ──────────────────────────────────────────────────────────────────
+    # Junk removal
+    # ──────────────────────────────────────────────────────────────────
 
-        lines = self._clean_text(text)
-        if not lines:
-            return
-
-        sections = []
-        current_title = title
-        current_lines = []
-
-        heading_patterns = [
-            r'^#{1,4}\s+(.+)$',
-            r'^\*+\s*(.+?)\*+:\s*$',
-            r'^\*+\s*(.+?)\*+\s*$',
-            r'^\*\*(.+?)\*\*$',
-            r'^\*\*(.+?):\*\*$'
-        ]
-
-        def extract_heading(line):
-            # Clean string from typical markdown heading/list characters
-            clean = re.sub(r"[\*\#\-\:\`\_\(\)]", "", line).strip()
-            
-            known_titles = {
-                "executive summary": "Executive Summary",
-                "key findings": "Key Findings",
-                "trends": "Trends",
-                "opportunities": "Opportunities",
-                "risks": "Risks",
-                "strategic recommendations": "Strategic Recommendations",
-                "immediate actions": "Immediate Actions (This Week)",
-                "immediate actions this week": "Immediate Actions (This Week)",
-                "business improvements": "Business Improvements",
-                "growth opportunities": "Growth Opportunities",
-                "risk mitigation": "Risk Mitigation",
-                "conclusion": "Conclusion",
-                "dataset overview": "Dataset Overview",
-                "data quality assessment": "Data Quality Assessment",
-                "analysis results": "Analysis Results",
-                "business insights": "Business Insights"
-            }
-            
-            clean_lower = clean.lower()
-            if clean_lower in known_titles:
-                return known_titles[clean_lower]
-                
-            # Check for case-insensitive partial match of length-bounded strings
-            for key, val in known_titles.items():
-                if len(clean_lower) >= len(key) - 2 and (key in clean_lower or clean_lower in key):
-                    if len(clean) < 50:
-                        return val
-
-            for pattern in heading_patterns:
-                match = re.match(pattern, line)
-                if match:
-                    heading = match.group(1).strip()
-                    if len(heading) < 80:
-                        return heading
-            return None
-
-        for line in lines:
-            heading = extract_heading(line)
-            if heading:
-                if current_lines:
-                    sections.append((current_title, current_lines))
-                current_title = heading
-                current_lines = []
-            else:
-                # avoid duplicating the section title in the very first line of a section
-                clean_line = re.sub(r'^#+\s*', '', line).strip(":- ")
-                clean_line = re.sub(r"\*\*(.*?)\*\*", r"\1", clean_line)
-                if not current_lines and (
-                    clean_line.lower() == current_title.lower() or
-                    current_title.lower() in clean_line.lower() or
-                    clean_line.lower() in current_title.lower()
-                ):
-                    continue
-                current_lines.append(line)
-
-        if current_lines:
-            sections.append((current_title, current_lines))
-
-        for section_title, section_lines in sections:
-            if not section_lines:
-                continue
-
-            chunks = self._split_section_into_chunks(section_lines, max_chars=1200)
-
-            for idx, chunk in enumerate(chunks):
-                slide_title = (
-                    section_title
-                    if idx == 0
-                    else f"{section_title} (Continued)"
-                )
-                slide = self._blank_slide(prs, slide_title)
-                self._add_body_lines(slide, chunk, top=1.22)
-
-    def _add_conclusion_slide(self, prs):
-        slide = self._blank_slide(prs, "Conclusion")
-        lines = [
-            "This report was automatically generated by the AI Data Analyst Agent.",
-            (
-                "The workflow included data quality assessment, dataset profiling, "
-                "AI-powered analysis, visualization, business insights, and strategic "
-                "recommendations."
-            ),
-        ]
-        self._add_body_lines(
-            slide,
-            self._wrapped_lines(lines),
-            top=1.7,
-            font_size=18,
-            max_lines=7,
-        )
-
-    def _split_section_into_chunks(self, lines, max_chars=1200):
-        """
-        Split a section into multiple slides only if it becomes too large.
-        Keeps headings together.
-        """
-        chunks = []
-        current_chunk = []
-        current_size = 0
-
-        for line in lines:
-            line_size = len(line)
-
-            if current_size + line_size > max_chars and current_chunk:
-                chunks.append(current_chunk)
-                current_chunk = [line]
-                current_size = line_size
-            else:
-                current_chunk.append(line)
-                current_size += line_size
-
-        if current_chunk:
-            chunks.append(current_chunk)
-
-        return chunks
-
-    def _remove_empty_slides(self, prs):
-        slides_to_delete = []
+    @staticmethod
+    def _remove_junk(prs):
+        to_delete: list[int] = []
         for idx, slide in enumerate(prs.slides):
-            text_found = False
-            for shape in slide.shapes:
-                if hasattr(shape, "text"):
-                    txt = shape.text.strip()
-                    if len(txt) > 5:
-                        text_found = True
-                        break
-            if not text_found:
-                slides_to_delete.append(idx)
+            texts = " ".join(
+                s.text.strip() for s in slide.shapes if hasattr(s, "text")
+            ).lower()
 
-        for idx in reversed(slides_to_delete):
-            slide_id = prs.slides._sldIdLst[idx]
-            rel_id = slide_id.rId
-            prs.part.drop_rel(rel_id)
+            meaningful = sum(
+                1 for s in slide.shapes
+                if hasattr(s, "text") and len(s.text.strip()) > 5
+            )
+            if meaningful == 0:
+                to_delete.append(idx)
+                continue
+            if any(m in texts for m in _JUNK):
+                to_delete.append(idx)
+
+        for idx in reversed(to_delete):
+            sid = prs.slides._sldIdLst[idx]
+            prs.part.drop_rel(sid.rId)
             del prs.slides._sldIdLst[idx]
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Module-level helpers (no state, easily testable)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def _clean(text: str) -> str:
+    t = re.sub(r"\*\*(.*?)\*\*", r"\1", str(text))
+    t = re.sub(r"^#+\s*", "", t)
+    t = re.sub(r"`([^`]*)`", r"\1", t)
+    return t.strip(":- ") or ""
+
+
+def _clean_bullets(raw: list) -> list[str]:
+    out: list[str] = []
+    for b in raw:
+        t = _clean(str(b))
+        t = re.sub(r"^[\-\*\u2022]\s*", "", t)
+        t = re.sub(r"^\d+[.)]\s*", "", t)
+        if not t:
+            continue
+        if any(m in t.lower() for m in _JUNK):
+            continue
+        out.append(t)
+    return out
+
+
+def _unpack_chart(item, idx: int):
+    try:
+        p, t, c = item
+    except (ValueError, TypeError):
+        try:
+            p, c = item
+            t = f"Visualization {idx}"
+        except (ValueError, TypeError):
+            p, t, c = item, f"Visualization {idx}", ""
+    return p, t, c
+
+
+def _set_indent(p_elem, left_emu, indent_emu=0):
+    pPr = p_elem.find(qn("a:pPr"))
+    if pPr is None:
+        pPr = etree.SubElement(p_elem, qn("a:pPr"))
+        p_elem.insert(0, pPr)
+    pPr.set("marL", str(int(left_emu)))
+    pPr.set("indent", str(int(indent_emu)))
+
+
+def _set_spacing(p_elem, after_pt: float):
+    pPr = p_elem.find(qn("a:pPr"))
+    if pPr is None:
+        pPr = etree.SubElement(p_elem, qn("a:pPr"))
+        p_elem.insert(0, pPr)
+    spcAft = pPr.find(qn("a:spcAft"))
+    if spcAft is None:
+        spcAft = etree.SubElement(pPr, qn("a:spcAft"))
+    spcPts = spcAft.find(qn("a:spcPts"))
+    if spcPts is None:
+        spcPts = etree.SubElement(spcAft, qn("a:spcPts"))
+    spcPts.set("val", str(int(after_pt * 100)))

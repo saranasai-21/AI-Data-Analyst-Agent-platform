@@ -65,6 +65,7 @@ def generate_text(
     temperature=0.2,
     max_output_tokens=900,
     thinking_budget=0,
+    response_schema=None,
 ):
     global _active_key
     keys_to_try = list(GEMINI_API_KEYS)
@@ -92,6 +93,10 @@ def generate_text(
                     "max_output_tokens": max_output_tokens,
                     "http_options": types.HttpOptions(timeout=GEMINI_TIMEOUT_SECONDS * 1000),
                 }
+
+                if response_schema is not None:
+                    config_args["response_schema"] = response_schema
+                    config_args["response_mime_type"] = "application/json"
 
                 if thinking_budget is not None and "gemini-2.5" in model:
                     config_args["thinking_config"] = types.ThinkingConfig(

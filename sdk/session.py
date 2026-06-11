@@ -227,6 +227,8 @@ class AnalysisSession:
             insights=self.latest_result.get("insights", ""),
             recommendations=self.latest_result.get("recommendations", ""),
             chart_items=chart_items,
+            query=self.latest_result.get("query", ""),
+            dataset_summary=self.latest_result.get("dataset_summary", ""),
             output_path=output_path
         )
         return output_path
