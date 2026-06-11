@@ -31,6 +31,8 @@ class RecommendationAgent:
 
 ## Instructions
 Write SPECIFIC, ACTIONABLE recommendations based ONLY on the actual data and insights above. Do NOT use placeholder text, vague phrases, or generic statements. Every recommendation must reference specific columns, values or patterns from the data.
+CRITICAL: Do NOT include any formal greetings, conversational openings (like "Good morning", "Hello everyone"), or pleasantries. Start immediately with the required sections.
+
 
 Structure your response with these exact sections using markdown:
 

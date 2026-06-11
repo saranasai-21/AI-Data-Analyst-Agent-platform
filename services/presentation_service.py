@@ -517,20 +517,56 @@ class PresentationService:
         if not lines:
             return
 
-        # Avoid duplicating the title in the body lines
-        first_line_clean = re.sub(r'^#+\s*', '', lines[0]).strip(":- ")
-        if first_line_clean.lower() == title.lower() or title.lower() in first_line_clean.lower() and len(first_line_clean) < 60:
-            lines = lines[1:]
+        sections = []
+        current_section_title = title
+        current_section_lines = []
 
-        if not lines:
-            return
+        def get_heading(line):
+            import re
+            m1 = re.match(r'^#{1,4}\s+(.+)$', line)
+            if m1:
+                return m1.group(1).strip()
+            m2 = re.match(r'^\*\*(.+?):\*\*\s*$', line)
+            if m2:
+                return m2.group(1).strip()
+            m3 = re.match(r'^\*\*(.+?)\*\*\s*$', line)
+            if m3:
+                return m3.group(1).strip()
+            return None
 
+        for line in lines:
+            heading = get_heading(line)
+            if heading and len(heading) < 60:
+                if current_section_lines:
+                    sections.append((current_section_title, current_section_lines))
+                # Only use the heading if it makes sense
+                if title.lower() in heading.lower():
+                    current_section_title = heading
+                elif heading.lower() in title.lower():
+                    current_section_title = title
+                else:
+                    current_section_title = f"{title} - {heading}"
+                current_section_lines = []
+            else:
+                # avoid duplicating the title in the very first line of a section
+                import re
+                clean_line = re.sub(r'^#+\s*', '', line).strip(":- ")
+                if not current_section_lines and (clean_line.lower() == current_section_title.lower() or current_section_title.lower() in clean_line.lower()):
+                    continue
+                current_section_lines.append(line)
+                
+        if current_section_lines:
+            sections.append((current_section_title, current_section_lines))
+            
         chunk_size = 8
-        for i in range(0, len(lines), chunk_size):
-            chunk = lines[i:i + chunk_size]
-            current_title = title if i == 0 else f"{title} (Continued)"
-            slide = self._blank_slide(prs, current_title)
-            self._add_body_lines(slide, chunk, top=1.22, max_lines=chunk_size)
+        for sec_title, sec_lines in sections:
+            if not sec_lines:
+                continue
+            for i in range(0, len(sec_lines), chunk_size):
+                chunk = sec_lines[i:i + chunk_size]
+                current_title = sec_title if i == 0 else f"{sec_title} (Continued)"
+                slide = self._blank_slide(prs, current_title)
+                self._add_body_lines(slide, chunk, top=1.22, max_lines=chunk_size)
 
     def _add_conclusion_slide(self, prs):
         slide = self._blank_slide(prs, "Conclusion")

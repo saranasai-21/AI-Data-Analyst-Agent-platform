@@ -27,6 +27,8 @@ class InsightAgent:
 
 ## Instructions
 Write REAL, SPECIFIC insights based ONLY on the actual data above. Do NOT use placeholder text, template phrases, or generic statements. Do NOT write things like "[Insert description]" or "[mention time period]".
+CRITICAL: Do NOT include any formal greetings, conversational openings (like "Good morning", "Hello everyone"), or pleasantries. Start immediately with the required sections.
+
 
 Structure your response with these exact sections using markdown:
 
