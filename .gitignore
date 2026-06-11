@@ -30,7 +30,3 @@ outputs/*
 !outputs/charts/
 !outputs/.gitkeep
 !outputs/charts/.gitkeep
-
-# Local pptx test files
-*.pptx
-
