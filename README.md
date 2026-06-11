@@ -158,5 +158,6 @@ Hugging Face Space: https://huggingface.co/spaces/saranasai/AI-Data-Analyst
 
 # Interface
 
-https://github.com/saranasai-21/AI-Data-Analyst-Agent-platform/blob/main/README.md
+<img width="1904" height="708" alt="Screenshot 2026-06-11 154256" src="https://github.com/user-attachments/assets/b1d7ce4d-0f92-4e13-9e7d-8a0d216c5d00" />
+
 
