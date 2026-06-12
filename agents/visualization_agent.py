@@ -61,6 +61,7 @@ Rules:
 fig
 
 8. If a column represents numeric values but contains symbols or formats (e.g. percentages like '85%', or rates/ratios like '2 / 14'), clean the values (e.g. stripping '%', extracting numeric parts, or evaluating fractions) and convert them to numeric type using pd.to_numeric before plotting.
+9. Always generate a graphical chart (e.g., px.bar, px.line, px.scatter, px.pie, etc.) rather than a table structure like go.Table. Never use go.Table. If the query asks for summary statistics (like averages of multiple columns), compute the values first (e.g., using pd.DataFrame or pd.Series) and plot them as a bar chart (using px.bar or go.Bar) so it displays as an actual graph.
 
 Examples:
 
