@@ -578,10 +578,13 @@ const PptEditor = ({ args }: ComponentProps) => {
 
   if (!slides || slides.length === 0) {
     return (
-      <div className="flex h-[800px] w-full bg-slate-900 rounded-lg border border-slate-700 items-center justify-center flex-col text-slate-100">
-        <ImageIcon className="w-16 h-16 text-slate-500 mb-4" />
-        <h3 className="text-lg font-medium">No slides to preview</h3>
-        <p className="text-slate-400">Generate presentation to preview slides</p>
+      <div className="flex h-[800px] w-full bg-[#09090b] rounded-xl border border-white/10 items-center justify-center flex-col text-zinc-100 shadow-2xl relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-indigo-900/20 via-[#09090b]/0 to-[#09090b] pointer-events-none"></div>
+        <div className="relative z-10 flex flex-col items-center">
+          <ImageIcon className="w-16 h-16 text-zinc-600 mb-4 drop-shadow-lg" />
+          <h3 className="text-xl font-semibold tracking-tight">No slides to preview</h3>
+          <p className="text-zinc-400 mt-2">Generate presentation to preview slides</p>
+        </div>
       </div>
     );
   }
@@ -589,26 +592,26 @@ const PptEditor = ({ args }: ComponentProps) => {
   const isTextObj = selectedObj && (selectedObj.type === 'textbox' || selectedObj.type === 'i-text');
 
   return (
-    <div className="flex h-[800px] w-full bg-slate-900 rounded-lg overflow-hidden border border-slate-700 text-slate-100 select-none">
+    <div className="flex h-[800px] w-full bg-[#09090b] rounded-xl overflow-hidden border border-white/10 text-zinc-100 select-none shadow-2xl font-sans">
       {/* Sidebar - Slide Thumbnails (250px) */}
-      <div className="w-[250px] min-w-[250px] bg-slate-800 border-r border-slate-700 flex flex-col overflow-y-auto">
-        <div className="p-4 bg-slate-750 border-b border-slate-700 font-bold text-slate-200 flex justify-between items-center text-sm tracking-wide">
-          <span>SLIDES PREVIEW</span>
-          <span className="text-xs font-semibold px-2 py-0.5 bg-slate-700 text-slate-300 rounded-full">{slides.length}</span>
+      <div className="w-[250px] min-w-[250px] bg-[#18181b]/80 backdrop-blur-xl border-r border-white/5 flex flex-col overflow-y-auto z-10">
+        <div className="px-5 py-4 border-b border-white/5 font-bold text-zinc-200 flex justify-between items-center text-xs tracking-wider uppercase">
+          <span>Slides Preview</span>
+          <span className="text-[10px] font-bold px-2 py-0.5 bg-indigo-500/20 text-indigo-300 rounded-full border border-indigo-500/30">{slides.length}</span>
         </div>
-        <div className="p-3 space-y-3">
+        <div className="p-4 space-y-4">
           {slides.map((slide, idx) => (
             <React.Fragment key={idx}>
               <div 
                 onClick={() => setActiveSlideIdx(idx)}
-                className={`p-3 rounded-lg cursor-pointer border-2 transition-all duration-150 ${activeSlideIdx === idx ? 'border-indigo-500 bg-slate-750 shadow-md' : 'border-transparent hover:bg-slate-700'}`}
+                className={`p-3 rounded-xl cursor-pointer border transition-all duration-200 group ${activeSlideIdx === idx ? 'border-indigo-500/50 bg-indigo-500/10 shadow-[0_0_15px_rgba(99,102,241,0.15)] scale-[1.02]' : 'border-transparent hover:bg-white/5 hover:border-white/10'}`}
               >
-                <div className="text-xs font-bold text-indigo-400 mb-1">SLIDE {idx + 1}</div>
-                <div className="text-sm font-semibold text-slate-200 truncate">{slide.title || 'Untitled Slide'}</div>
-                <div className="text-xs text-slate-400 mt-1 capitalize">{slide.layout?.replace('_', ' ')}</div>
+                <div className={`text-[10px] font-bold mb-1.5 transition-colors ${activeSlideIdx === idx ? 'text-indigo-400' : 'text-zinc-500 group-hover:text-zinc-400'}`}>SLIDE {idx + 1}</div>
+                <div className={`text-sm font-semibold truncate transition-colors ${activeSlideIdx === idx ? 'text-zinc-100' : 'text-zinc-300 group-hover:text-zinc-200'}`}>{slide.title || 'Untitled Slide'}</div>
+                <div className="text-xs text-zinc-500 mt-1.5 capitalize font-medium">{slide.layout?.replace('_', ' ')}</div>
               </div>
               {idx < slides.length - 1 && (
-                <div className="border-t border-slate-700/60 my-1 mx-2" />
+                <div className="border-t border-white/5 my-2 mx-2" />
               )}
             </React.Fragment>
           ))}
@@ -616,31 +619,31 @@ const PptEditor = ({ args }: ComponentProps) => {
       </div>
 
       {/* Main Canvas Editor Area (Flex centered) */}
-      <div className="flex-1 flex flex-col bg-slate-900">
+      <div className="flex-1 flex flex-col relative z-0">
         {/* Toolbar */}
-        <div className="h-14 bg-slate-800 border-b border-slate-700 flex items-center px-4 justify-between">
-          <div className="flex items-center space-x-2">
+        <div className="h-16 bg-[#18181b]/80 backdrop-blur-xl border-b border-white/5 flex items-center px-6 justify-between z-10 shadow-sm">
+          <div className="flex items-center space-x-3">
             <button 
               onClick={handleAddText}
               disabled={isLocked}
-              className="px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 disabled:opacity-40 text-slate-200 flex items-center text-xs font-bold transition-all"
+              className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-30 text-zinc-200 flex items-center text-xs font-semibold transition-all border border-white/5 hover:border-white/10 hover:shadow-md"
             >
-              <Type className="w-3.5 h-3.5 mr-2" /> Add Text
+              <Type className="w-4 h-4 mr-2" /> Add Text
             </button>
             <button 
               onClick={handleAddImage}
               disabled={isLocked}
-              className="px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 disabled:opacity-40 text-slate-200 flex items-center text-xs font-bold transition-all"
+              className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-30 text-zinc-200 flex items-center text-xs font-semibold transition-all border border-white/5 hover:border-white/10 hover:shadow-md"
             >
-              <ImageIcon className="w-3.5 h-3.5 mr-2" /> Add Image
+              <ImageIcon className="w-4 h-4 mr-2" /> Add Image
             </button>
-            <div className="w-px h-6 bg-slate-700 mx-2"></div>
+            <div className="w-px h-6 bg-white/10 mx-2"></div>
             <button 
               onClick={handleDeleteElement}
               disabled={!selectedObj || isLocked}
-              className="px-3 py-1.5 rounded bg-red-900/60 hover:bg-red-900 disabled:opacity-40 text-red-200 flex items-center text-xs font-bold transition-all border border-red-750"
+              className="px-4 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 disabled:opacity-30 text-red-400 flex items-center text-xs font-semibold transition-all border border-red-500/20 hover:border-red-500/30 hover:shadow-[0_0_10px_rgba(239,68,68,0.2)]"
             >
-              <Trash2 className="w-3.5 h-3.5 mr-2" /> Delete
+              <Trash2 className="w-4 h-4 mr-2" /> Delete
             </button>
           </div>
           
@@ -658,18 +661,19 @@ const PptEditor = ({ args }: ComponentProps) => {
                   canvas.renderAll();
                 }
               }}
-              className={`px-3 py-1.5 rounded flex items-center text-xs font-bold transition-all ${isLocked ? 'bg-amber-600 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-200'}`}
+              className={`px-4 py-2 rounded-lg flex items-center text-xs font-semibold transition-all border ${isLocked ? 'bg-amber-500/20 text-amber-300 border-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.15)]' : 'bg-white/5 hover:bg-white/10 text-zinc-200 border-white/5 hover:border-white/10'}`}
             >
-              {isLocked ? <Lock className="w-3.5 h-3.5 mr-2" /> : <Unlock className="w-3.5 h-3.5 mr-2" />}
+              {isLocked ? <Lock className="w-4 h-4 mr-2" /> : <Unlock className="w-4 h-4 mr-2" />}
               {isLocked ? 'Locked Layout' : 'Unlock Layout'}
             </button>
           </div>
         </div>
 
         {/* Viewport Canvas container */}
-        <div ref={containerRef} className="flex-1 bg-slate-950 flex items-center justify-center p-6 overflow-hidden relative">
+        <div ref={containerRef} className="flex-1 bg-[#09090b] flex items-center justify-center p-6 overflow-hidden relative shadow-inner">
+          <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '32px 32px' }}></div>
           <div 
-            className="shadow-2xl bg-white absolute transition-transform duration-75" 
+            className="shadow-[0_20px_50px_rgba(0,0,0,0.5)] bg-white absolute transition-transform duration-75 ring-1 ring-white/10" 
             style={{ 
               width: SLIDE_WIDTH, 
               height: SLIDE_HEIGHT, 
@@ -679,8 +683,8 @@ const PptEditor = ({ args }: ComponentProps) => {
           >
             <canvas ref={canvasRef} />
             {slides[activeSlideIdx]?.layout === 'visual_analysis' && (
-               <div className="absolute inset-0 bg-slate-900/40 flex items-center justify-center pointer-events-none">
-                 <div className="bg-slate-800 text-slate-100 border border-slate-700 px-6 py-3 rounded-xl shadow-lg text-lg font-bold">
+               <div className="absolute inset-0 bg-zinc-900/40 flex items-center justify-center pointer-events-none backdrop-blur-[2px]">
+                 <div className="bg-[#18181b]/95 text-zinc-100 border border-white/10 px-8 py-4 rounded-2xl shadow-2xl text-xl font-bold tracking-tight">
                    Chart Analytics Canvas (Read Only)
                  </div>
                </div>
@@ -690,92 +694,92 @@ const PptEditor = ({ args }: ComponentProps) => {
       </div>
 
       {/* Properties Panel (300px) */}
-      <div className="w-[300px] min-w-[300px] bg-slate-800 border-l border-slate-700 flex flex-col">
-        <div className="p-4 bg-slate-750 border-b border-slate-700 font-bold text-slate-200 flex items-center text-sm tracking-wide">
+      <div className="w-[300px] min-w-[300px] bg-[#18181b]/80 backdrop-blur-xl border-l border-white/5 flex flex-col z-10">
+        <div className="px-5 py-4 border-b border-white/5 font-bold text-zinc-200 flex items-center text-xs tracking-wider uppercase">
           <Settings className="w-4 h-4 mr-2 text-indigo-400" />
-          <span>PROPERTIES PANEL</span>
+          <span>Properties Panel</span>
         </div>
         
         {selectedObj ? (
-          <div className="p-4 flex-1 overflow-y-auto space-y-4">
+          <div className="p-5 flex-1 overflow-y-auto space-y-6">
             {/* Position and Size */}
             <div>
-              <span className="text-xs font-bold text-slate-400 block mb-2">LAYOUT POSITION</span>
-              <div className="grid grid-cols-2 gap-2">
+              <span className="text-[10px] font-bold text-zinc-500 tracking-wider block mb-3 uppercase">Layout Position</span>
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[10px] text-slate-400 block mb-1">POS X</label>
+                  <label className="text-[10px] font-semibold text-zinc-400 block mb-1.5 uppercase">Pos X</label>
                   <input 
                     type="number" 
                     value={Math.round(selectedObj.left || 0)} 
                     onChange={(e) => updateSelectedProperty('left', e.target.value)}
-                    className="w-full bg-slate-700 border border-slate-600 rounded px-2.5 py-1 text-sm text-slate-100 focus:outline-none focus:border-indigo-500"
+                    className="w-full bg-[#09090b] border border-white/10 rounded-lg px-3 py-1.5 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all shadow-inner"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] text-slate-400 block mb-1">POS Y</label>
+                  <label className="text-[10px] font-semibold text-zinc-400 block mb-1.5 uppercase">Pos Y</label>
                   <input 
                     type="number" 
                     value={Math.round(selectedObj.top || 0)} 
                     onChange={(e) => updateSelectedProperty('top', e.target.value)}
-                    className="w-full bg-slate-700 border border-slate-600 rounded px-2.5 py-1 text-sm text-slate-100 focus:outline-none focus:border-indigo-500"
+                    className="w-full bg-[#09090b] border border-white/10 rounded-lg px-3 py-1.5 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all shadow-inner"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] text-slate-400 block mb-1">WIDTH W</label>
+                  <label className="text-[10px] font-semibold text-zinc-400 block mb-1.5 uppercase">Width</label>
                   <input 
                     type="number" 
                     value={Math.round(selectedObj.width ? selectedObj.width * (selectedObj.scaleX || 1) : 0)} 
                     onChange={(e) => updateSelectedProperty('width', e.target.value)}
-                    className="w-full bg-slate-700 border border-slate-600 rounded px-2.5 py-1 text-sm text-slate-100 focus:outline-none focus:border-indigo-500"
+                    className="w-full bg-[#09090b] border border-white/10 rounded-lg px-3 py-1.5 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all shadow-inner"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] text-slate-400 block mb-1">HEIGHT H</label>
+                  <label className="text-[10px] font-semibold text-zinc-400 block mb-1.5 uppercase">Height</label>
                   <input 
                     type="number" 
                     value={Math.round(selectedObj.height ? selectedObj.height * (selectedObj.scaleY || 1) : 0)} 
                     onChange={(e) => updateSelectedProperty('height', e.target.value)}
-                    className="w-full bg-slate-700 border border-slate-600 rounded px-2.5 py-1 text-sm text-slate-100 focus:outline-none focus:border-indigo-500"
+                    className="w-full bg-[#09090b] border border-white/10 rounded-lg px-3 py-1.5 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all shadow-inner"
                   />
                 </div>
               </div>
             </div>
             
-            <div className="border-t border-slate-700 my-2" />
+            <div className="border-t border-white/5" />
 
             {/* Font Style edits if Text */}
             {isTextObj && (
-              <div className="space-y-4">
+              <div className="space-y-6">
                 <div>
-                  <span className="text-xs font-bold text-slate-400 block mb-2">FONT PROPERTIES</span>
-                  <div className="grid grid-cols-2 gap-2">
+                  <span className="text-[10px] font-bold text-zinc-500 tracking-wider block mb-3 uppercase">Font Properties</span>
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-[10px] text-slate-400 block mb-1">FONT SIZE</label>
+                      <label className="text-[10px] font-semibold text-zinc-400 block mb-1.5 uppercase">Size</label>
                       <input 
                         type="number" 
                         value={(selectedObj as any).fontSize || 24} 
                         onChange={(e) => updateSelectedProperty('fontSize', e.target.value)}
-                        className="w-full bg-slate-700 border border-slate-600 rounded px-2.5 py-1 text-sm text-slate-100 focus:outline-none focus:border-indigo-500"
+                        className="w-full bg-[#09090b] border border-white/10 rounded-lg px-3 py-1.5 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all shadow-inner"
                       />
                     </div>
                     <div>
-                      <label className="text-[10px] text-slate-400 block mb-1">COLOR</label>
+                      <label className="text-[10px] font-semibold text-zinc-400 block mb-1.5 uppercase">Color</label>
                       <input 
                         type="color" 
                         value={selectedObj.fill as string || '#333333'} 
                         onChange={(e) => updateSelectedProperty('fill', e.target.value)}
-                        className="w-full h-8 bg-slate-700 border border-slate-600 rounded cursor-pointer p-0.5"
+                        className="w-full h-[34px] bg-[#09090b] border border-white/10 rounded-lg cursor-pointer p-0.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
                       />
                     </div>
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-slate-400 block mb-2">EDIT TEXT CONTENT</label>
+                  <label className="text-[10px] font-bold text-zinc-500 tracking-wider block mb-3 uppercase">Edit Content</label>
                   <textarea 
                     value={(selectedObj as any).text || ''} 
                     onChange={(e) => updateSelectedProperty('text', e.target.value)}
-                    className="w-full bg-slate-700 border border-slate-600 rounded px-2.5 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 font-sans leading-relaxed"
+                    className="w-full bg-[#09090b] border border-white/10 rounded-lg px-3 py-3 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 font-sans leading-relaxed transition-all shadow-inner resize-y"
                     rows={8}
                   />
                 </div>
@@ -785,17 +789,17 @@ const PptEditor = ({ args }: ComponentProps) => {
             {/* Non-text elements details */}
             {!isTextObj && (
               <div>
-                <span className="text-xs font-bold text-slate-400 block mb-2">ELEMENT TYPE</span>
-                <div className="px-3 py-2 bg-slate-700 rounded text-sm font-semibold capitalize text-indigo-300 border border-slate-600">
+                <span className="text-[10px] font-bold text-zinc-500 tracking-wider block mb-3 uppercase">Element Type</span>
+                <div className="px-4 py-2.5 bg-indigo-500/10 rounded-lg text-sm font-semibold capitalize text-indigo-300 border border-indigo-500/20 shadow-inner">
                   {(selectedObj as any).elementType || selectedObj.type}
                 </div>
               </div>
             )}
           </div>
         ) : (
-          <div className="p-6 flex-1 flex flex-col justify-center items-center text-center text-slate-500">
-            <Layout className="w-12 h-12 text-slate-600 mb-3" />
-            <p className="text-xs leading-normal">
+          <div className="p-8 flex-1 flex flex-col justify-center items-center text-center text-zinc-500 bg-[#09090b]/30">
+            <Layout className="w-16 h-16 text-zinc-700 mb-4 drop-shadow-md" />
+            <p className="text-xs leading-relaxed max-w-[200px]">
               Select an element on the canvas to configure its position, content, and styling parameters.
             </p>
           </div>
