@@ -417,11 +417,16 @@ class PresentationService:
         spcPts.set("val", str(int(pt_value * 100)))
 
     def _estimate_and_fit_text(self, lines, width_in, height_in, initial_font_size, space_after_pt):
+        # Subtract margins and bullet hanging indents from usable width
+        usable_width_in = max(1.0, width_in - 0.6)
+        # Keep a 25pt safety threshold at the bottom of the card to prevent border crossings
+        usable_height_pt = (height_in * 72) - 25
+
         font_size = initial_font_size
         while font_size >= 9.5:
             total_height_pt = 0
-            # Times New Roman average character width is around 0.35 * font_size
-            chars_per_line = int((width_in * 72) / (0.35 * font_size))
+            # Times New Roman average character width is around 0.40 * font_size
+            chars_per_line = int((usable_width_in * 72) / (0.40 * font_size))
             if chars_per_line <= 0:
                 chars_per_line = 1
             for line in lines:
@@ -429,14 +434,14 @@ class PresentationService:
                 clean_line = re.sub(r"^#+\s*", "", clean_line)
                 length = len(clean_line)
                 visual_lines = max(1, (length + chars_per_line - 1) // chars_per_line)
-                para_height = visual_lines * (font_size * 1.25) + space_after_pt
+                para_height = visual_lines * (font_size * 1.3) + space_after_pt
                 total_height_pt += para_height
-            if total_height_pt <= (height_in * 72):
+            if total_height_pt <= usable_height_pt:
                 return font_size, lines
             font_size -= 0.5
             
         font_size = 9.5
-        chars_per_line = int((width_in * 72) / (0.35 * font_size))
+        chars_per_line = int((usable_width_in * 72) / (0.40 * font_size))
         if chars_per_line <= 0:
             chars_per_line = 1
         fitted_lines = []
@@ -446,8 +451,8 @@ class PresentationService:
             clean_line = re.sub(r"^#+\s*", "", clean_line)
             length = len(clean_line)
             visual_lines = max(1, (length + chars_per_line - 1) // chars_per_line)
-            para_height = visual_lines * (font_size * 1.25) + space_after_pt
-            if total_height_pt + para_height <= (height_in * 72) - 10:
+            para_height = visual_lines * (font_size * 1.3) + space_after_pt
+            if total_height_pt + para_height <= usable_height_pt:
                 total_height_pt += para_height
                 fitted_lines.append(line)
             else:
@@ -939,9 +944,9 @@ class PresentationService:
         # Title text box
         title_box = slide.shapes.add_textbox(
             Inches(0.8),
-            Inches(2.0),
+            Inches(1.2),
             Inches(6.0),
-            Inches(1.5),
+            Inches(2.0),
         )
         frame = title_box.text_frame
         frame.word_wrap = True
@@ -956,7 +961,7 @@ class PresentationService:
         # Subtitle text box
         subtitle = slide.shapes.add_textbox(
             Inches(0.8),
-            Inches(3.3),
+            Inches(3.5),
             Inches(6.0),
             Inches(1.0),
         )
@@ -973,7 +978,7 @@ class PresentationService:
         # Descriptive block
         desc_box = slide.shapes.add_textbox(
             Inches(0.8),
-            Inches(4.6),
+            Inches(4.8),
             Inches(5.8),
             Inches(1.5),
         )
