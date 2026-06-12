@@ -1993,52 +1993,15 @@ def render_report(df, charts, profile, quality_report):
     recommendations = latest.get("recommendations", "No AI recommendations generated yet.")
     analysis_result = latest.get("analysis_result", {"result": "No AI analysis generated yet."})
 
-    col_btn_ppt, col_btn_pdf, col_btn_edit = st.columns(3)
-    with col_btn_ppt:
-        if st.button("Build Static PPT", use_container_width=True):
-            chart_items = [
-                (chart.path, chart.title, chart.caption)
-                for chart in selected_charts
-            ]
-            prs = PresentationService()
-            output_name = safe_filename(StateManager.get_file_name() or "AI_Report")
-            report_path = prs.create_report(
-                file_name=StateManager.get_file_name() or "dataset",
-                profile=report_profile,
-                quality_report=report_quality,
-                analysis_result=analysis_result,
-                insights=insights,
-                recommendations=recommendations,
-                chart_items=chart_items,
-                output_path=f"outputs/{output_name}.pptx",
-            )
-            st.session_state.report_path = report_path
-            st.success("PPT report built.")
-
-    with col_btn_pdf:
-        if st.button("Build PDF Report", use_container_width=True):
-            pdf_svc = PDFService()
-            output_name = safe_filename(StateManager.get_file_name() or "AI_Report")
-            pdf_path = pdf_svc.create_report(
-                file_name=StateManager.get_file_name() or "dataset",
-                profile=report_profile,
-                quality_report=report_quality,
-                analysis_result=analysis_result,
-                insights=insights,
-                recommendations=recommendations,
-                output_path=f"outputs/{output_name}.pdf",
-            )
-            st.session_state.pdf_report_path = pdf_path
-            st.success("PDF report built.")
-
+    col_btn_edit, col_btn_pdf = st.columns(2)
     with col_btn_edit:
-        if st.button("Generate Editable Draft", use_container_width=True):
+        if st.button("Generate Presentation", type="primary", use_container_width=True):
             from core.gemini_service import generate_text
             from core.config import GEMINI_API_KEY
             import json
             import re
             
-            with st.spinner("Generating editable slide layouts via AI..."):
+            with st.spinner("Analyzing data and generating slide layouts..."):
                 prompt = (
                     "You are a Presentation Layout Engine.\n"
                     "Transform the analysis into a JSON presentation state.\n"
@@ -2064,51 +2027,70 @@ def render_report(df, charts, profile, quality_report):
                     json_str = generate_text(GEMINI_API_KEY, prompt, max_output_tokens=4096)
                     clean_str = re.sub(r'```(?:json)?\n?(.*?)\n?```', r'\1', json_str.strip(), flags=re.DOTALL)
                     st.session_state.presentation_state = json.loads(clean_str)
-                    st.success("Editable state generated!")
+                    st.success("Presentation generated! Review and edit the slides below.")
                 except Exception as e:
                     st.error(f"Failed to generate JSON state: {e}")
 
+    with col_btn_pdf:
+        if st.button("Build PDF Report", use_container_width=True):
+            pdf_svc = PDFService()
+            output_name = safe_filename(StateManager.get_file_name() or "AI_Report")
+            pdf_path = pdf_svc.create_report(
+                file_name=StateManager.get_file_name() or "dataset",
+                profile=report_profile,
+                quality_report=report_quality,
+                analysis_result=analysis_result,
+                insights=insights,
+                recommendations=recommendations,
+                output_path=f"outputs/{output_name}.pdf",
+            )
+            st.session_state.pdf_report_path = pdf_path
+            st.success("PDF report built.")
+
     # Editable UI
     if "presentation_state" in st.session_state and st.session_state.presentation_state:
-        st.markdown("### 📝 Slide Editor")
-        st.caption("Drag reorder, edit text, or rewrite slides before exporting.")
+        st.divider()
+        st.markdown("### 📝 Slide Layout Editor")
+        st.caption("Review how the slides are structured. Edit text directly, reorder, or delete slides before finalizing the export.")
         
         state = st.session_state.presentation_state
         slides = state.get("slides", [])
         
         for i, slide in enumerate(slides):
-            with st.expander(f"Slide {i+1}: {slide.get('title', 'Untitled')}", expanded=False):
-                slide["title"] = st.text_input("Slide Title", value=slide.get("title", ""), key=f"title_{i}")
+            with st.container(border=True):
+                st.markdown(f"**Slide {i+1}** | Layout: `{slide.get('layout', 'custom')}`")
+                slide["title"] = st.text_input("Slide Title", value=slide.get("title", ""), key=f"title_{i}", label_visibility="collapsed")
                 
                 for j, elem in enumerate(slide.get("elements", [])):
-                    elem["text"] = st.text_area(f"Content Block {j+1}", value=elem.get("text", ""), key=f"text_{i}_{j}")
+                    elem["text"] = st.text_area(f"Content {j+1}", value=elem.get("text", ""), key=f"text_{i}_{j}", height=120)
                     
                 col1, col2, col3, col4 = st.columns(4)
                 with col1:
-                    if st.button("🗑️ Delete", key=f"del_{i}"):
+                    if st.button("🗑️ Delete Slide", key=f"del_{i}", use_container_width=True):
                         slides.pop(i)
                         st.rerun()
                 with col2:
-                    if st.button("⬆️ Move Up", key=f"up_{i}") and i > 0:
+                    if st.button("⬆️ Move Up", key=f"up_{i}", use_container_width=True) and i > 0:
                         slides[i], slides[i-1] = slides[i-1], slides[i]
                         st.rerun()
                 with col3:
-                    if st.button("⬇️ Move Down", key=f"down_{i}") and i < len(slides) - 1:
+                    if st.button("⬇️ Move Down", key=f"down_{i}", use_container_width=True) and i < len(slides) - 1:
                         slides[i], slides[i+1] = slides[i+1], slides[i]
                         st.rerun()
                 with col4:
-                    if st.button("✨ AI Rewrite", key=f"rewrite_{i}"):
+                    if st.button("✨ AI Rewrite", key=f"rewrite_{i}", use_container_width=True):
                         st.info("AI rewrite requested. (Premium Feature)")
                         
+        st.divider()
         if st.button("Apply Design & Download PPT", type="primary", use_container_width=True):
             prs = PresentationService()
-            output_name = safe_filename(StateManager.get_file_name() or "Editable_AI_Report")
+            output_name = safe_filename(StateManager.get_file_name() or "AI_Report")
             report_path = prs.create_report_from_state(
                 presentation_state=state,
                 output_path=f"outputs/{output_name}.pptx"
             )
             st.session_state.report_path = report_path
-            st.success("Custom PPT built successfully!")
+            st.success("Custom PPT built successfully! Check the download button below.")
 
     col_dl_ppt, col_dl_pdf = st.columns(2)
     with col_dl_ppt:
@@ -2116,10 +2098,11 @@ def render_report(df, charts, profile, quality_report):
         if report_path and os.path.exists(report_path):
             with open(report_path, "rb") as report_file:
                 st.download_button(
-                    "Download PPT Report",
+                    "⬇️ Download Final PPT",
                     data=report_file,
                     file_name=os.path.basename(report_path),
                     use_container_width=True,
+                    type="primary"
                 )
     
     with col_dl_pdf:
@@ -2127,7 +2110,7 @@ def render_report(df, charts, profile, quality_report):
         if pdf_report_path and os.path.exists(pdf_report_path):
             with open(pdf_report_path, "rb") as pdf_file:
                 st.download_button(
-                    "Download PDF Report",
+                    "⬇️ Download Final PDF",
                     data=pdf_file,
                     file_name=os.path.basename(pdf_report_path),
                     use_container_width=True,
