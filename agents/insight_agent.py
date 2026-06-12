@@ -36,16 +36,16 @@ Structure your response with these exact sections using markdown:
 Write 2-3 sentences summarising the most important findings from the data above.
 
 **Key Findings:**
-- List 3-5 specific, numbered observations directly drawn from the analysis result.
+- List 3-4 specific, numbered observations directly drawn from the analysis result.
 
 **Trends:**
-- Identify 2-3 patterns visible in the numbers or categories.
+- Identify 3-4 patterns visible in the numbers or categories.
 
 **Opportunities:**
-- List 2-3 actionable opportunities based on the data findings.
+- List 3-4 actionable opportunities based on the data findings.
 
 **Risks:**
-- List 2-3 risks or concerns evident in the data.
+- List 3-4 risks or concerns evident in the data.
 
 Use only facts from the dataset summary and analysis output above. Be direct and specific.
 """

@@ -37,19 +37,19 @@ CRITICAL: Do NOT include any formal greetings, conversational openings (like "Go
 Structure your response with these exact sections using markdown:
 
 **Strategic Recommendations:**
-1. Write 2-3 concrete strategic actions with specific measurable targets based on the data.
+- Write 3-4 concrete strategic actions with specific measurable targets based on the data.
 
 **Immediate Actions (This Week):**
-1. List 2-3 quick wins that can be acted on immediately from the data findings.
+- List 3-4 quick wins that can be acted on immediately from the data findings.
 
 **Business Improvements:**
-1. Identify 2-3 process or operational improvements supported by the data.
+- Identify 3-4 process or operational improvements supported by the data.
 
 **Growth Opportunities:**
-1. List 2-3 specific growth vectors evidenced in the dataset.
+- List 3-4 specific growth vectors evidenced in the dataset.
 
 **Risk Mitigation:**
-1. List 2-3 specific risks with concrete mitigation steps derived from the data.
+- List 3-4 specific risks with concrete mitigation steps derived from the data.
 
 Be direct, specific and data-driven. Reference actual column names and values where relevant.
 """

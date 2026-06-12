@@ -945,7 +945,7 @@ class PresentationService:
         title_box = slide.shapes.add_textbox(
             Inches(0.8),
             Inches(1.2),
-            Inches(6.0),
+            Inches(5.5),
             Inches(2.0),
         )
         frame = title_box.text_frame
@@ -954,7 +954,7 @@ class PresentationService:
         p = frame.paragraphs[0]
         p.text = "📊 AI Data Analyst Report"
         p.font.name = "Times New Roman"
-        p.font.size = Pt(44)
+        p.font.size = Pt(36)
         p.font.bold = True
         p.font.color.rgb = RGBColor(255, 255, 255)
         
@@ -962,7 +962,7 @@ class PresentationService:
         subtitle = slide.shapes.add_textbox(
             Inches(0.8),
             Inches(3.5),
-            Inches(6.0),
+            Inches(5.5),
             Inches(1.0),
         )
         frame = subtitle.text_frame
@@ -972,7 +972,7 @@ class PresentationService:
         clean_file = os.path.basename(file_name)
         p.text = f"📂 Dataset: {clean_file}"
         p.font.name = "Times New Roman"
-        p.font.size = Pt(20)
+        p.font.size = Pt(18)
         p.font.color.rgb = RGBColor(148, 163, 184) # Slate 400
         
         # Descriptive block
@@ -1287,7 +1287,7 @@ class PresentationService:
             if not section_lines:
                 continue
 
-            chunks = self._split_section_into_chunks(section_lines, max_chars=1200)
+            chunks = self._split_section_into_chunks(section_lines, max_chars=800)
 
             for idx, chunk in enumerate(chunks):
                 # Ensure the section title has a clean emoji representing it
@@ -1379,7 +1379,7 @@ class PresentationService:
         p4.font.color.rgb = RGBColor(13, 148, 136) # Teal
         p4.space_before = Pt(16)
 
-    def _split_section_into_chunks(self, lines, max_chars=1200):
+    def _split_section_into_chunks(self, lines, max_chars=800):
         """
         Split a section into multiple slides only if it becomes too large.
         Keeps headings together.
