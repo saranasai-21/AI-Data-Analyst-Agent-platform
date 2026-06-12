@@ -717,6 +717,189 @@ class PresentationService:
                     computed_font_size=computed_font_size,
                     space_after=space_after
                 )
+    def _summarize_raw_result(self, raw_str):
+        # Clean text first to see if it looks like table/describe values
+        raw_str_clean = raw_str.strip()
+        if not raw_str_clean:
+            return raw_str
+            
+        is_raw_table = False
+        
+        # Check for pandas describe() indicators
+        describe_keywords = ["count", "mean", "std", "min", "25%", "50%", "75%", "max"]
+        keyword_count = sum(1 for kw in describe_keywords if kw in raw_str_clean.lower())
+        if keyword_count >= 3:
+            is_raw_table = True
+            
+        # Check for NaN values or column structure with numbers
+        if not is_raw_table:
+            lines = raw_str_clean.split("\n")
+            if len(lines) >= 3:
+                # If a line contains many consecutive spaces and multiple numbers/NaN
+                tab_or_space_cols = 0
+                for line in lines[:8]:
+                    parts = re.split(r'\s{2,}', line.strip())
+                    if len(parts) >= 3 and any(p == "NaN" or re.match(r'^-?\d+\.?\d*$', p) for p in parts):
+                        tab_or_space_cols += 1
+                if tab_or_space_cols >= 2:
+                    is_raw_table = True
+                    
+        if not is_raw_table:
+            return raw_str
+            
+        from core.gemini_service import generate_text
+        from core.config import GEMINI_API_KEY
+        
+        if not GEMINI_API_KEY:
+            return raw_str
+            
+        prompt = (
+            f"You are a Senior Business Analyst presenting to corporate stakeholders.\n"
+            f"Here is a raw data result of an analysis query:\n\n"
+            f"\"\"\"\n{raw_str}\n\"\"\"\n\n"
+            f"Please explain and summarize the key business insights and metrics from this raw data "
+            f"in 3-4 professional, natural language bullet points (start each with a dash '- '). "
+            f"Do NOT output any raw tables, matrices, NaNs, or python structures. "
+            f"Convert the raw numbers into meaningful percentage changes, averages, or findings that business stakeholders can easily understand."
+        )
+        try:
+            summary = generate_text(GEMINI_API_KEY, prompt, max_output_tokens=1000)
+            if summary and len(summary.strip()) > 10:
+                return summary.strip()
+        except Exception:
+            pass
+        return raw_str
+
+    def _generate_dynamic_art(self, seed_string, is_conclusion=False):
+        import re
+        safe_seed = re.sub(r'[^a-zA-Z0-9_-]', '_', seed_string)
+        prefix = "conclusion_" if is_conclusion else "cover_"
+        output_path = os.path.join("outputs", f"{prefix}{safe_seed}.png")
+        
+        if os.path.exists(output_path):
+            return output_path
+            
+        try:
+            import math
+            import random
+            from PIL import Image, ImageDraw, ImageFilter
+            
+            width, height = 1200, 1200
+            image = Image.new("RGBA", (width, height), (15, 23, 42, 255))
+            draw = ImageDraw.Draw(image)
+            
+            random.seed(seed_string)
+            
+            palettes = [
+                ((13, 148, 136), (56, 189, 248), (37, 99, 235), (20, 110, 120)),   # Teal/Cyan/Blue
+                ((139, 92, 246), (167, 139, 250), (236, 72, 153), (90, 60, 180)),  # Purple/Indigo/Pink
+                ((16, 185, 129), (110, 231, 183), (6, 182, 212), (10, 120, 90)),   # Emerald/Cyan
+                ((245, 158, 11), (251, 146, 60), (244, 63, 94), (170, 100, 10))    # Amber/Orange/Rose
+            ]
+            p_color, s_color, a_color, d_color = random.choice(palettes)
+            
+            # Background gradient
+            for y in range(height):
+                for x in range(width):
+                    dist = (x + y) / (width + height)
+                    r = int(15 + (d_color[0] - 15) * dist * 0.45)
+                    g = int(23 + (d_color[1] - 23) * dist * 0.45)
+                    b = int(42 + (d_color[2] - 42) * dist * 0.45)
+                    image.putpixel((x, y), (r, g, b, 255))
+                    
+            draw = ImageDraw.Draw(image)
+            
+            # Faint grid lines
+            grid_color = (255, 255, 255, 10)
+            vanish_x, vanish_y = width // 2, -height // 4
+            for i in range(-10, 21):
+                x_target = width * i / 10
+                draw.line([(vanish_x, vanish_y), (x_target, height)], fill=grid_color, width=2)
+            for i in range(15):
+                y = height * (i / 14) ** 1.5
+                draw.line([(0, y), (width, y)], fill=grid_color, width=1)
+                
+            if not is_conclusion:
+                # Cover Art
+                for w in range(3):
+                    points = []
+                    amplitude = random.uniform(80, 150)
+                    frequency = random.uniform(0.003, 0.006)
+                    phase = random.uniform(0, 2 * math.pi)
+                    y_offset = height * (0.45 + w * 0.12)
+                    
+                    for x in range(0, width, 10):
+                        y = y_offset + amplitude * math.sin(frequency * x + phase)
+                        points.append((x, y))
+                        
+                    color_w = a_color if w == 0 else (p_color if w == 1 else s_color)
+                    draw.line(points, fill=color_w + (30,), width=14)
+                    draw.line(points, fill=color_w + (80,), width=6)
+                    draw.line(points, fill=(255, 255, 255, 180), width=2)
+                    
+                # Network Nodes
+                nodes = []
+                num_nodes = random.randint(12, 18)
+                for _ in range(num_nodes):
+                    nx = random.uniform(width * 0.15, width * 0.85)
+                    ny = random.uniform(height * 0.25, height * 0.8)
+                    nr = random.uniform(12, 28)
+                    nodes.append((nx, ny, nr))
+                    
+                for i in range(len(nodes)):
+                    dists = []
+                    for j in range(len(nodes)):
+                        if i != j:
+                            d = math.hypot(nodes[i][0]-nodes[j][0], nodes[i][1]-nodes[j][1])
+                            dists.append((d, j))
+                    dists.sort()
+                    for d, idx in dists[:random.randint(1, 2)]:
+                        if d < 350:
+                            alpha = int(max(10, 140 * (1 - d / 350)))
+                            draw.line([(nodes[i][0], nodes[i][1]), (nodes[idx][0], nodes[idx][1])], fill=s_color + (alpha,), width=2)
+                            
+                for nx, ny, nr in nodes:
+                    draw.ellipse([nx - nr*2.2, ny - nr*2.2, nx + nr*2.2, ny + nr*2.2], fill=p_color + (25,))
+                    draw.ellipse([nx - nr, ny - nr, nx + nr, ny + nr], fill=s_color + (160,), outline=(255, 255, 255, 200), width=2)
+                    draw.ellipse([nx - nr*0.4, ny - nr*0.4, nx + nr*0.4, ny + nr*0.4], fill=(255, 255, 255, 255))
+                    
+                # Stacked Database Cylinder
+                cx, cy, cw, ch = width * 0.5, height * 0.42, 110, 180
+                for i in range(4):
+                    dy = cy - i * 40
+                    draw.ellipse([cx - cw, dy - 25 + 8, cx + cw, dy + 25 + 8], fill=(0,0,0,70))
+                    draw.ellipse([cx - cw, dy - 25, cx + cw, dy + 25], fill=p_color + (90,), outline=(255,255,255,160), width=3)
+                    draw.ellipse([cx - cw*0.75, dy - 16, cx + cw*0.75, dy + 16], fill=s_color + (140,))
+                    
+            else:
+                # Conclusion Art
+                for r in [120, 220, 320, 420]:
+                    alpha = int(100 * (1 - r / 500))
+                    draw.ellipse([width//2 - r, height//2 - r, width//2 + r, height//2 + r], outline=s_color + (alpha,), width=3)
+                    
+                num_rays = 12
+                for i in range(num_rays):
+                    angle = i * (2 * math.pi / num_rays)
+                    x1 = width//2 + 90 * math.cos(angle)
+                    y1 = height//2 + 90 * math.sin(angle)
+                    x2 = width//2 + 380 * math.cos(angle)
+                    y2 = height//2 + 380 * math.sin(angle)
+                    draw.line([(x1, y1), (x2, y2)], fill=p_color + (40,), width=2)
+                    
+                cx, cy, cr = width//2, height//2, 85
+                draw.ellipse([cx-cr*1.6, cy-cr*1.6, cx+cr*1.6, cy+cr*1.6], fill=a_color + (35,))
+                draw.ellipse([cx-cr, cy-cr, cx+cr, cy+cr], fill=p_color + (160,), outline=(255,255,255,210), width=4)
+                
+                p1 = (cx - cr * 0.4, cy - cr * 0.05)
+                p2 = (cx - cr * 0.1, cy + cr * 0.3)
+                p3 = (cx + cr * 0.45, cy - cr * 0.35)
+                draw.line([p1, p2, p3], fill=(255, 255, 255, 255), width=10, joint="round")
+                
+            image = image.filter(ImageFilter.SMOOTH_MORE)
+            image.save(output_path)
+            return output_path
+        except Exception:
+            return None
 
     def _add_title_slide(self, prs, file_name):
         slide = prs.slides.add_slide(prs.slide_layouts[6])
@@ -727,7 +910,10 @@ class PresentationService:
         background.fore_color.rgb = RGBColor(15, 23, 42) # Slate 900
         
         # Add the gorgeous cover art image at the right side of the slide
-        cover_art_path = self._get_asset_path("cover_illustration.png")
+        cover_art_path = self._generate_dynamic_art(file_name, is_conclusion=False)
+        if not cover_art_path:
+            cover_art_path = self._get_asset_path("cover_illustration.png")
+            
         if cover_art_path:
             try:
                 slide.shapes.add_picture(
@@ -947,13 +1133,24 @@ class PresentationService:
         if not self._is_valid_content(result_text):
             return
 
+        # Clean/Format raw result
+        if isinstance(result_text, pd.DataFrame):
+            raw_str = result_text.to_string(index=True)
+        elif isinstance(result_text, pd.Series):
+            raw_str = result_text.to_string()
+        else:
+            raw_str = str(result_text)
+
+        # Call the summarizer helper to turn raw table data into readable business bullets
+        final_text = self._summarize_raw_result(raw_str)
+
         base_name = getattr(self, "_current_base_name", "")
         analysis_default = f"{base_name} Analysis" if base_name else "Analysis Results"
-        analysis_title = self._determine_slide_title(result_text, analysis_default)
+        analysis_title = self._determine_slide_title(final_text, analysis_default)
 
         # Make sure title is styled with emoji
         final_title = analysis_title if analysis_title.startswith("📈") else f"📈 {analysis_title}"
-        self._add_text_slides(prs, final_title, result_text)
+        self._add_text_slides(prs, final_title, final_text)
 
     def _add_visualization_slides(self, prs, chart_items=None):
         if not chart_items:
@@ -1024,6 +1221,17 @@ class PresentationService:
     def _add_text_slides(self, prs, title, text):
         if not self._is_valid_content(text):
             return
+
+        # Clean/Format raw result
+        if isinstance(text, pd.DataFrame):
+            raw_str = text.to_string(index=True)
+        elif isinstance(text, pd.Series):
+            raw_str = text.to_string()
+        else:
+            raw_str = str(text)
+
+        # Summarize raw table/describe numerical values automatically
+        text = self._summarize_raw_result(raw_str)
 
         lines = self._clean_text(text)
         if not lines:
@@ -1110,7 +1318,11 @@ class PresentationService:
         accent_shape.line.fill.background()
         
         # Center the conclusion illustration inside the left dark panel
-        conclusion_icon_path = self._get_asset_path("icon_conclusion.png")
+        base_name = getattr(self, "_current_base_name", "")
+        conclusion_icon_path = self._generate_dynamic_art(base_name or "conclusion", is_conclusion=True)
+        if not conclusion_icon_path:
+            conclusion_icon_path = self._get_asset_path("icon_conclusion.png")
+            
         if conclusion_icon_path:
             try:
                 slide.shapes.add_picture(
