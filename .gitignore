@@ -28,5 +28,6 @@ env/
 # App dynamic outputs (ignore generated reports, keep the folders)
 outputs/*
 !outputs/charts/
+outputs/charts/*
 !outputs/.gitkeep
 !outputs/charts/.gitkeep
