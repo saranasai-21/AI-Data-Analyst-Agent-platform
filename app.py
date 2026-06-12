@@ -1933,9 +1933,10 @@ if df is None:
     st.stop()
 
 df = working_dataframe(df)
-profile, quality_report = local_report_inputs(df)
-column_summary = build_column_summary(df)
-charts = get_cached_chart_catalog(df)
+with st.spinner("Analyzing dataset, assessing data quality, and building visual catalog..."):
+    profile, quality_report = local_report_inputs(df)
+    column_summary = build_column_summary(df)
+    charts = get_cached_chart_catalog(df)
 
 render_header(df)
 
