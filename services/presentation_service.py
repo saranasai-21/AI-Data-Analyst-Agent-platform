@@ -111,8 +111,8 @@ class PresentationService:
         clean_title = re.sub(r"\*\*(.*?)\*\*", r"\1", clean_title)
         clean_title = re.sub(r"^#+\s*", "", clean_title).strip(":- ")
         p.text = clean_title
-        p.font.name = "Arial"
-        p.font.size = Pt(26 if len(clean_title) <= 42 else 21)
+        p.font.name = "Segoe UI"
+        p.font.size = Pt(28 if len(clean_title) <= 42 else 22)
         p.font.bold = True
         p.font.color.rgb = RGBColor(30, 41, 59) # Slate 800 title text
         return slide
@@ -174,8 +174,8 @@ class PresentationService:
         tf_val.clear()
         p_val = tf_val.paragraphs[0]
         p_val.text = f"{emoji} {value}" if emoji else str(value)
-        p_val.font.name = "Arial"
-        p_val.font.size = Pt(30)
+        p_val.font.name = "Segoe UI"
+        p_val.font.size = Pt(34)
         p_val.font.bold = True
         p_val.font.color.rgb = RGBColor(13, 148, 136) # Teal value accent
         
@@ -190,8 +190,8 @@ class PresentationService:
         tf_title.clear()
         p_title = tf_title.paragraphs[0]
         p_title.text = title
-        p_title.font.name = "Arial"
-        p_title.font.size = Pt(14)
+        p_title.font.name = "Segoe UI"
+        p_title.font.size = Pt(15)
         p_title.font.bold = True
         p_title.font.color.rgb = RGBColor(71, 85, 105) # Slate-600
 
@@ -218,13 +218,24 @@ class PresentationService:
         
         path = self._get_asset_path(asset_name)
         if path:
-            pic_width = width - Inches(0.5)
+            # Use generous margins (1.2 inches total margin) to decrease image size
+            pic_w_max = width - Inches(1.2)
+            pic_h_max = height - Inches(1.2)
+            
+            # Since icons are square, size is the minimum of w/h capacity
+            pic_size = min(pic_w_max, pic_h_max)
+            
+            # Center the picture perfectly inside the card shape
+            pic_left = left + (width - pic_size) / 2
+            pic_top = top + (height - pic_size) / 2
+            
             try:
                 slide.shapes.add_picture(
                     path,
-                    left + Inches(0.25),
-                    top + Inches(0.25),
-                    width=pic_width
+                    pic_left,
+                    pic_top,
+                    width=pic_size,
+                    height=pic_size
                 )
             except Exception:
                 pass
@@ -442,7 +453,7 @@ class PresentationService:
                     first_line_emu=0,
                 )
 
-            p_obj.font.name = "Arial"
+            p_obj.font.name = "Segoe UI"
             p_obj.font.size = Pt(computed_font_size)
             p_obj.font.color.rgb = RGBColor(51, 65, 85) # Slate 700 text color
             self._set_para_space_after(p_elem, pt_value=space_after)
@@ -497,8 +508,8 @@ class PresentationService:
             tf_intro.clear()
             p_intro = tf_intro.paragraphs[0]
             p_intro.text = intro_line
-            p_intro.font.name = "Arial"
-            p_intro.font.size = Pt(13.5)
+            p_intro.font.name = "Segoe UI"
+            p_intro.font.size = Pt(15.5)
             p_intro.font.color.rgb = RGBColor(71, 85, 105) # Slate 600
             p_intro.font.italic = True
             
@@ -529,8 +540,8 @@ class PresentationService:
         has_subheading = any(b.endswith(":") and len(b) < 45 for b in body_lines)
         if len(body_lines) <= 5 and not has_subheading:
             # Single column layout: Left card for text, right card for graphic illustration
-            computed_font_size = 14 if has_intro else 15
-            space_after = 8 if has_intro else 10
+            computed_font_size = 15.5 if has_intro else 17.5
+            space_after = 10 if has_intro else 12
             
             card = slide.shapes.add_shape(
                 MSO_SHAPE.ROUNDED_RECTANGLE,
@@ -595,17 +606,20 @@ class PresentationService:
 
             max_col_lines = max(len(col1), len(col2))
             if max_col_lines <= 5:
-                computed_font_size = 13.5 if has_intro else 14
+                computed_font_size = 15 if has_intro else 16.5
+                space_after = 8
+            elif max_col_lines <= 8:
+                computed_font_size = 13 if has_intro else 14.5
                 space_after = 6
-            elif max_col_lines <= 9:
-                computed_font_size = 12 if has_intro else 13
+            elif max_col_lines <= 12:
+                computed_font_size = 11.5 if has_intro else 12.5
                 space_after = 5
-            elif max_col_lines <= 14:
+            elif max_col_lines <= 16:
                 computed_font_size = 10.5 if has_intro else 11.5
                 space_after = 4
             else:
-                computed_font_size = 9.5
-                space_after = 2
+                computed_font_size = 9.5 if has_intro else 10.5
+                space_after = 3
 
             # Col 1 Card background
             card1 = slide.shapes.add_shape(
@@ -700,8 +714,8 @@ class PresentationService:
         frame.clear()
         p = frame.paragraphs[0]
         p.text = "📊 AI Data Analyst Report"
-        p.font.name = "Arial"
-        p.font.size = Pt(40)
+        p.font.name = "Segoe UI"
+        p.font.size = Pt(44)
         p.font.bold = True
         p.font.color.rgb = RGBColor(255, 255, 255)
         
@@ -718,8 +732,8 @@ class PresentationService:
         p = frame.paragraphs[0]
         clean_file = os.path.basename(file_name)
         p.text = f"📂 Dataset: {clean_file}"
-        p.font.name = "Arial"
-        p.font.size = Pt(18)
+        p.font.name = "Segoe UI"
+        p.font.size = Pt(20)
         p.font.color.rgb = RGBColor(148, 163, 184) # Slate 400
         
         # Descriptive block
@@ -734,8 +748,8 @@ class PresentationService:
         frame.clear()
         p = frame.paragraphs[0]
         p.text = "✨ Automated profile, deep insights, strategic recommendations, and selected visual evidence."
-        p.font.name = "Arial"
-        p.font.size = Pt(15)
+        p.font.name = "Segoe UI"
+        p.font.size = Pt(16)
         p.font.italic = True
         p.font.color.rgb = RGBColor(13, 148, 136) # Teal accent
 
@@ -775,15 +789,15 @@ class PresentationService:
         
         p0 = tf.paragraphs[0]
         p0.text = "📋 Column Preview"
-        p0.font.name = "Arial"
-        p0.font.size = Pt(18)
+        p0.font.name = "Segoe UI"
+        p0.font.size = Pt(20)
         p0.font.bold = True
         p0.font.color.rgb = RGBColor(30, 41, 59)
         
         p1 = tf.add_paragraph()
         p1.text = "Primary fields detected:"
-        p1.font.name = "Arial"
-        p1.font.size = Pt(13)
+        p1.font.name = "Segoe UI"
+        p1.font.size = Pt(14)
         p1.font.color.rgb = RGBColor(100, 116, 139)
         p1.space_before = Pt(6)
         
@@ -792,8 +806,8 @@ class PresentationService:
         if len(column_names) > 16:
             cols_text += f" (+ {len(column_names) - 16} more)"
         p2.text = cols_text
-        p2.font.name = "Arial"
-        p2.font.size = Pt(12)
+        p2.font.name = "Segoe UI"
+        p2.font.size = Pt(13)
         p2.font.color.rgb = RGBColor(71, 85, 105)
         p2.line_spacing = 1.3
         p2.space_before = Pt(8)
@@ -847,29 +861,29 @@ class PresentationService:
         
         p0 = tf.paragraphs[0]
         p0.text = "🛡️ Assessment Summary"
-        p0.font.name = "Arial"
-        p0.font.size = Pt(18)
+        p0.font.name = "Segoe UI"
+        p0.font.size = Pt(20)
         p0.font.bold = True
         p0.font.color.rgb = RGBColor(30, 41, 59)
         
         p1 = tf.add_paragraph()
         p1.text = "• Duplicates: Repeated rows can lead to statistical bias and should be cleaned."
-        p1.font.name = "Arial"
-        p1.font.size = Pt(12.5)
+        p1.font.name = "Segoe UI"
+        p1.font.size = Pt(13.5)
         p1.font.color.rgb = RGBColor(71, 85, 105)
         p1.space_before = Pt(6)
         
         p2 = tf.add_paragraph()
         p2.text = "• Missing Values: High concentrations of null data require appropriate imputation or removal."
-        p2.font.name = "Arial"
-        p2.font.size = Pt(12.5)
+        p2.font.name = "Segoe UI"
+        p2.font.size = Pt(13.5)
         p2.font.color.rgb = RGBColor(71, 85, 105)
         p2.space_before = Pt(4)
         
         p3 = tf.add_paragraph()
         p3.text = "• Constant & Cardinality: Single-value columns contain no descriptive power; extremely high unique columns should be modeled carefully."
-        p3.font.name = "Arial"
-        p3.font.size = Pt(12.5)
+        p3.font.name = "Segoe UI"
+        p3.font.size = Pt(13.5)
         p3.font.color.rgb = RGBColor(71, 85, 105)
         p3.space_before = Pt(4)
 
@@ -954,8 +968,8 @@ class PresentationService:
             display_caption = re.sub(r"\*\*(.*?)\*\*", r"\1", display_caption)
             display_caption = re.sub(r"^#+\s*", "", display_caption)
             p.text = display_caption
-            p.font.name = "Arial"
-            p.font.size = Pt(13)
+            p.font.name = "Segoe UI"
+            p.font.size = Pt(14.5)
             p.font.color.rgb = RGBColor(71, 85, 105)
             p.alignment = PP_ALIGN.CENTER
 
@@ -1073,29 +1087,29 @@ class PresentationService:
         
         p = frame.paragraphs[0]
         p.text = "🏁 Conclusion & Next Steps"
-        p.font.name = "Arial"
-        p.font.size = Pt(36)
+        p.font.name = "Segoe UI"
+        p.font.size = Pt(38)
         p.font.bold = True
         p.font.color.rgb = RGBColor(255, 255, 255)
         
         p2 = frame.add_paragraph()
         p2.text = "This report was automatically generated by the AI Data Analyst Agent."
-        p2.font.name = "Arial"
-        p2.font.size = Pt(18)
+        p2.font.name = "Segoe UI"
+        p2.font.size = Pt(19)
         p2.font.color.rgb = RGBColor(148, 163, 184)
         p2.space_before = Pt(20)
         
         p3 = frame.add_paragraph()
         p3.text = "🔄 The workflow included data quality assessment, dataset profiling, AI-powered analysis, visualization, business insights, and strategic recommendations."
-        p3.font.name = "Arial"
-        p3.font.size = Pt(18)
+        p3.font.name = "Segoe UI"
+        p3.font.size = Pt(19)
         p3.font.color.rgb = RGBColor(148, 163, 184)
         p3.space_before = Pt(12)
         
         p4 = frame.add_paragraph()
         p4.text = "🚀 Use these findings to drive strategic business decisions and optimize your processes."
-        p4.font.name = "Arial"
-        p4.font.size = Pt(18)
+        p4.font.name = "Segoe UI"
+        p4.font.size = Pt(19)
         p4.font.bold = True
         p4.font.color.rgb = RGBColor(13, 148, 136) # Teal
         p4.space_before = Pt(16)
