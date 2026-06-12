@@ -2050,36 +2050,26 @@ def render_report(df, charts, profile, quality_report):
     # Editable UI
     if "presentation_state" in st.session_state and st.session_state.presentation_state:
         st.divider()
-        st.markdown("### 📝 Slide Layout Editor")
-        st.caption("Review how the slides are structured. Edit text directly, reorder, or delete slides before finalizing the export.")
+        st.markdown("### 📝 Interactive Slide Editor")
+        st.caption("Drag, resize, edit text, or add elements on the Canva-style canvas below.")
         
         state = st.session_state.presentation_state
-        slides = state.get("slides", [])
         
-        for i, slide in enumerate(slides):
-            with st.container(border=True):
-                st.markdown(f"**Slide {i+1}** | Layout: `{slide.get('layout', 'custom')}`")
-                slide["title"] = st.text_input("Slide Title", value=slide.get("title", ""), key=f"title_{i}", label_visibility="collapsed")
-                
-                for j, elem in enumerate(slide.get("elements", [])):
-                    elem["text"] = st.text_area(f"Content {j+1}", value=elem.get("text", ""), key=f"text_{i}_{j}", height=120)
-                    
-                col1, col2, col3, col4 = st.columns(4)
-                with col1:
-                    if st.button("🗑️ Delete Slide", key=f"del_{i}", use_container_width=True):
-                        slides.pop(i)
-                        st.rerun()
-                with col2:
-                    if st.button("⬆️ Move Up", key=f"up_{i}", use_container_width=True) and i > 0:
-                        slides[i], slides[i-1] = slides[i-1], slides[i]
-                        st.rerun()
-                with col3:
-                    if st.button("⬇️ Move Down", key=f"down_{i}", use_container_width=True) and i < len(slides) - 1:
-                        slides[i], slides[i+1] = slides[i+1], slides[i]
-                        st.rerun()
-                with col4:
-                    if st.button("✨ AI Rewrite", key=f"rewrite_{i}", use_container_width=True):
-                        st.info("AI rewrite requested. (Premium Feature)")
+        try:
+            import sys
+            import os
+            # Ensure components package is discoverable
+            if os.path.join(os.getcwd()) not in sys.path:
+                sys.path.append(os.getcwd())
+            from components.ppt_editor import st_ppt_editor
+            
+            # The component returns the updated state whenever the canvas changes
+            updated_state = st_ppt_editor(state, key="ppt_editor_component")
+            if updated_state and isinstance(updated_state, dict) and "slides" in updated_state:
+                state = updated_state
+        except Exception as e:
+            st.error(f"Failed to load Interactive Editor Component: {e}")
+            st.info("Ensure you have run `npm install` and `npm run build` in the `components/ppt_editor` directory.")
                         
         st.divider()
         if st.button("Apply Design & Download PPT", type="primary", use_container_width=True):
