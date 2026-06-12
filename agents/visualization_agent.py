@@ -62,6 +62,7 @@ fig
 
 8. If a column represents numeric values but contains symbols or formats (e.g. percentages like '85%', or rates/ratios like '2 / 14'), clean the values (e.g. stripping '%', extracting numeric parts, or evaluating fractions) and convert them to numeric type using pd.to_numeric before plotting.
 9. Always generate a graphical chart (e.g., px.bar, px.line, px.scatter, px.pie, etc.) rather than a table structure like go.Table. Never use go.Table. If the query asks for summary statistics (like averages of multiple columns), compute the values first (e.g., using pd.DataFrame or pd.Series) and plot them as a bar chart (using px.bar or go.Bar) so it displays as an actual graph.
+10. If the user query is asking for "insights" or contains the word "insight" (case-insensitive), you MUST generate a 3D Plotly graph (e.g. `px.scatter_3d` or `go.Scatter3d` using three relevant numerical columns). For all other queries, generate a related 2D Plotly graph (e.g. `px.bar`, `px.line`, `px.scatter`, `px.pie`, etc.) and NEVER a 3D graph.
 
 Examples:
 

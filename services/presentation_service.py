@@ -111,7 +111,7 @@ class PresentationService:
         clean_title = re.sub(r"\*\*(.*?)\*\*", r"\1", clean_title)
         clean_title = re.sub(r"^#+\s*", "", clean_title).strip(":- ")
         p.text = clean_title
-        p.font.name = "Segoe UI"
+        p.font.name = "Times New Roman"
         p.font.size = Pt(28 if len(clean_title) <= 42 else 22)
         p.font.bold = True
         p.font.color.rgb = RGBColor(30, 41, 59) # Slate 800 title text
@@ -174,7 +174,7 @@ class PresentationService:
         tf_val.clear()
         p_val = tf_val.paragraphs[0]
         p_val.text = f"{emoji} {value}" if emoji else str(value)
-        p_val.font.name = "Segoe UI"
+        p_val.font.name = "Times New Roman"
         p_val.font.size = Pt(34)
         p_val.font.bold = True
         p_val.font.color.rgb = RGBColor(13, 148, 136) # Teal value accent
@@ -190,7 +190,7 @@ class PresentationService:
         tf_title.clear()
         p_title = tf_title.paragraphs[0]
         p_title.text = title
-        p_title.font.name = "Segoe UI"
+        p_title.font.name = "Times New Roman"
         p_title.font.size = Pt(15)
         p_title.font.bold = True
         p_title.font.color.rgb = RGBColor(71, 85, 105) # Slate-600
@@ -416,7 +416,55 @@ class PresentationService:
         # hundredths of a point
         spcPts.set("val", str(int(pt_value * 100)))
 
+    def _estimate_and_fit_text(self, lines, width_in, height_in, initial_font_size, space_after_pt):
+        font_size = initial_font_size
+        while font_size >= 9.5:
+            total_height_pt = 0
+            # Times New Roman average character width is around 0.35 * font_size
+            chars_per_line = int((width_in * 72) / (0.35 * font_size))
+            if chars_per_line <= 0:
+                chars_per_line = 1
+            for line in lines:
+                clean_line = re.sub(r"\*\*(.*?)\*\*", r"\1", line)
+                clean_line = re.sub(r"^#+\s*", "", clean_line)
+                length = len(clean_line)
+                visual_lines = max(1, (length + chars_per_line - 1) // chars_per_line)
+                para_height = visual_lines * (font_size * 1.25) + space_after_pt
+                total_height_pt += para_height
+            if total_height_pt <= (height_in * 72):
+                return font_size, lines
+            font_size -= 0.5
+            
+        font_size = 9.5
+        chars_per_line = int((width_in * 72) / (0.35 * font_size))
+        if chars_per_line <= 0:
+            chars_per_line = 1
+        fitted_lines = []
+        total_height_pt = 0
+        for line in lines:
+            clean_line = re.sub(r"\*\*(.*?)\*\*", r"\1", line)
+            clean_line = re.sub(r"^#+\s*", "", clean_line)
+            length = len(clean_line)
+            visual_lines = max(1, (length + chars_per_line - 1) // chars_per_line)
+            para_height = visual_lines * (font_size * 1.25) + space_after_pt
+            if total_height_pt + para_height <= (height_in * 72) - 10:
+                total_height_pt += para_height
+                fitted_lines.append(line)
+            else:
+                break
+        if not fitted_lines and lines:
+            fitted_lines = [lines[0]]
+        return font_size, fitted_lines
+
     def _add_textbox_column(self, slide, lines, left, top, width, height, computed_font_size, space_after):
+        # Prevent boundary crossing
+        width_in = float(width) / Inches(1) if isinstance(width, (int, float)) else float(width)
+        height_in = float(height) / Inches(1) if isinstance(height, (int, float)) else float(height)
+        
+        fitted_font_size, fitted_lines = self._estimate_and_fit_text(
+            lines, width_in, height_in, computed_font_size, space_after
+        )
+        
         box = slide.shapes.add_textbox(left, top, width, height)
         frame = box.text_frame
         frame.clear()
@@ -427,7 +475,7 @@ class PresentationService:
         frame.margin_top = Inches(0.05)
         frame.margin_bottom = Inches(0.05)
 
-        for i, line in enumerate(lines):
+        for i, line in enumerate(fitted_lines):
             p_obj = frame.paragraphs[0] if i == 0 else frame.add_paragraph()
             p_elem = p_obj._p
 
@@ -453,8 +501,8 @@ class PresentationService:
                     first_line_emu=0,
                 )
 
-            p_obj.font.name = "Segoe UI"
-            p_obj.font.size = Pt(computed_font_size)
+            p_obj.font.name = "Times New Roman"
+            p_obj.font.size = Pt(fitted_font_size)
             p_obj.font.color.rgb = RGBColor(51, 65, 85) # Slate 700 text color
             self._set_para_space_after(p_elem, pt_value=space_after)
 
@@ -508,7 +556,7 @@ class PresentationService:
             tf_intro.clear()
             p_intro = tf_intro.paragraphs[0]
             p_intro.text = intro_line
-            p_intro.font.name = "Segoe UI"
+            p_intro.font.name = "Times New Roman"
             p_intro.font.size = Pt(15.5)
             p_intro.font.color.rgb = RGBColor(71, 85, 105) # Slate 600
             p_intro.font.italic = True
@@ -714,7 +762,7 @@ class PresentationService:
         frame.clear()
         p = frame.paragraphs[0]
         p.text = "📊 AI Data Analyst Report"
-        p.font.name = "Segoe UI"
+        p.font.name = "Times New Roman"
         p.font.size = Pt(44)
         p.font.bold = True
         p.font.color.rgb = RGBColor(255, 255, 255)
@@ -732,7 +780,7 @@ class PresentationService:
         p = frame.paragraphs[0]
         clean_file = os.path.basename(file_name)
         p.text = f"📂 Dataset: {clean_file}"
-        p.font.name = "Segoe UI"
+        p.font.name = "Times New Roman"
         p.font.size = Pt(20)
         p.font.color.rgb = RGBColor(148, 163, 184) # Slate 400
         
@@ -748,7 +796,7 @@ class PresentationService:
         frame.clear()
         p = frame.paragraphs[0]
         p.text = "✨ Automated profile, deep insights, strategic recommendations, and selected visual evidence."
-        p.font.name = "Segoe UI"
+        p.font.name = "Times New Roman"
         p.font.size = Pt(16)
         p.font.italic = True
         p.font.color.rgb = RGBColor(13, 148, 136) # Teal accent
@@ -789,14 +837,14 @@ class PresentationService:
         
         p0 = tf.paragraphs[0]
         p0.text = "📋 Column Preview"
-        p0.font.name = "Segoe UI"
+        p0.font.name = "Times New Roman"
         p0.font.size = Pt(20)
         p0.font.bold = True
         p0.font.color.rgb = RGBColor(30, 41, 59)
         
         p1 = tf.add_paragraph()
         p1.text = "Primary fields detected:"
-        p1.font.name = "Segoe UI"
+        p1.font.name = "Times New Roman"
         p1.font.size = Pt(14)
         p1.font.color.rgb = RGBColor(100, 116, 139)
         p1.space_before = Pt(6)
@@ -806,7 +854,7 @@ class PresentationService:
         if len(column_names) > 16:
             cols_text += f" (+ {len(column_names) - 16} more)"
         p2.text = cols_text
-        p2.font.name = "Segoe UI"
+        p2.font.name = "Times New Roman"
         p2.font.size = Pt(13)
         p2.font.color.rgb = RGBColor(71, 85, 105)
         p2.line_spacing = 1.3
@@ -861,28 +909,28 @@ class PresentationService:
         
         p0 = tf.paragraphs[0]
         p0.text = "🛡️ Assessment Summary"
-        p0.font.name = "Segoe UI"
+        p0.font.name = "Times New Roman"
         p0.font.size = Pt(20)
         p0.font.bold = True
         p0.font.color.rgb = RGBColor(30, 41, 59)
         
         p1 = tf.add_paragraph()
         p1.text = "• Duplicates: Repeated rows can lead to statistical bias and should be cleaned."
-        p1.font.name = "Segoe UI"
+        p1.font.name = "Times New Roman"
         p1.font.size = Pt(13.5)
         p1.font.color.rgb = RGBColor(71, 85, 105)
         p1.space_before = Pt(6)
         
         p2 = tf.add_paragraph()
         p2.text = "• Missing Values: High concentrations of null data require appropriate imputation or removal."
-        p2.font.name = "Segoe UI"
+        p2.font.name = "Times New Roman"
         p2.font.size = Pt(13.5)
         p2.font.color.rgb = RGBColor(71, 85, 105)
         p2.space_before = Pt(4)
         
         p3 = tf.add_paragraph()
         p3.text = "• Constant & Cardinality: Single-value columns contain no descriptive power; extremely high unique columns should be modeled carefully."
-        p3.font.name = "Segoe UI"
+        p3.font.name = "Times New Roman"
         p3.font.size = Pt(13.5)
         p3.font.color.rgb = RGBColor(71, 85, 105)
         p3.space_before = Pt(4)
@@ -968,7 +1016,7 @@ class PresentationService:
             display_caption = re.sub(r"\*\*(.*?)\*\*", r"\1", display_caption)
             display_caption = re.sub(r"^#+\s*", "", display_caption)
             p.text = display_caption
-            p.font.name = "Segoe UI"
+            p.font.name = "Times New Roman"
             p.font.size = Pt(14.5)
             p.font.color.rgb = RGBColor(71, 85, 105)
             p.alignment = PP_ALIGN.CENTER
@@ -1087,28 +1135,28 @@ class PresentationService:
         
         p = frame.paragraphs[0]
         p.text = "🏁 Conclusion & Next Steps"
-        p.font.name = "Segoe UI"
+        p.font.name = "Times New Roman"
         p.font.size = Pt(38)
         p.font.bold = True
         p.font.color.rgb = RGBColor(255, 255, 255)
         
         p2 = frame.add_paragraph()
         p2.text = "This report was automatically generated by the AI Data Analyst Agent."
-        p2.font.name = "Segoe UI"
+        p2.font.name = "Times New Roman"
         p2.font.size = Pt(19)
         p2.font.color.rgb = RGBColor(148, 163, 184)
         p2.space_before = Pt(20)
         
         p3 = frame.add_paragraph()
         p3.text = "🔄 The workflow included data quality assessment, dataset profiling, AI-powered analysis, visualization, business insights, and strategic recommendations."
-        p3.font.name = "Segoe UI"
+        p3.font.name = "Times New Roman"
         p3.font.size = Pt(19)
         p3.font.color.rgb = RGBColor(148, 163, 184)
         p3.space_before = Pt(12)
         
         p4 = frame.add_paragraph()
         p4.text = "🚀 Use these findings to drive strategic business decisions and optimize your processes."
-        p4.font.name = "Segoe UI"
+        p4.font.name = "Times New Roman"
         p4.font.size = Pt(19)
         p4.font.bold = True
         p4.font.color.rgb = RGBColor(13, 148, 136) # Teal
