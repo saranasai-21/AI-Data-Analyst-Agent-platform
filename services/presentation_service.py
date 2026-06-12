@@ -54,10 +54,12 @@ class PresentationService:
             self._add_visualization_slides(prs, chart_items)
 
         if self._is_valid_content(insights):
-            self._add_text_slides(prs, insights_title, insights)
+            final_ins_title = insights_title if insights_title.startswith("💡") else f"💡 {insights_title}"
+            self._add_text_slides(prs, final_ins_title, insights)
 
         if self._is_valid_content(recommendations):
-            self._add_text_slides(prs, recs_title, recommendations)
+            final_rec_title = recs_title if recs_title.startswith("🎯") else f"🎯 {recs_title}"
+            self._add_text_slides(prs, final_rec_title, recommendations)
 
         self._add_conclusion_slide(prs)
 
@@ -69,11 +71,35 @@ class PresentationService:
         slide = prs.slides.add_slide(prs.slide_layouts[6])
         background = slide.background.fill
         background.solid()
-        background.fore_color.rgb = RGBColor(248, 251, 255)
+        background.fore_color.rgb = RGBColor(248, 250, 252) # slate-50 background
+
+        # Add a subtle header background band
+        header_band = slide.shapes.add_shape(
+            MSO_SHAPE.RECTANGLE,
+            Inches(0),
+            Inches(0),
+            Inches(13.333),
+            Inches(1.1),
+        )
+        header_band.fill.solid()
+        header_band.fill.fore_color.rgb = RGBColor(241, 245, 249) # slate-100 header band
+        header_band.line.fill.background()
+
+        # Add a colored left vertical accent line
+        accent_bar = slide.shapes.add_shape(
+            MSO_SHAPE.RECTANGLE,
+            Inches(0.4),
+            Inches(0.32),
+            Inches(0.08),
+            Inches(0.46),
+        )
+        accent_bar.fill.solid()
+        accent_bar.fill.fore_color.rgb = RGBColor(13, 148, 136) # Teal accent color
+        accent_bar.line.fill.background()
 
         title_box = slide.shapes.add_textbox(
             Inches(0.65),
-            Inches(0.35),
+            Inches(0.22),
             Inches(12),
             Inches(0.65),
         )
@@ -85,10 +111,89 @@ class PresentationService:
         clean_title = re.sub(r"\*\*(.*?)\*\*", r"\1", clean_title)
         clean_title = re.sub(r"^#+\s*", "", clean_title).strip(":- ")
         p.text = clean_title
-        p.font.size = Pt(28 if len(clean_title) <= 42 else 23)
+        p.font.name = "Arial"
+        p.font.size = Pt(26 if len(clean_title) <= 42 else 21)
         p.font.bold = True
-        p.font.color.rgb = RGBColor(18, 48, 74)
+        p.font.color.rgb = RGBColor(30, 41, 59) # Slate 800 title text
         return slide
+
+    def _get_emoji_for_text(self, text):
+        text_lower = text.lower()
+        if "insight" in text_lower or "found" in text_lower:
+            return "💡"
+        if "recommend" in text_lower or "action" in text_lower or "should" in text_lower:
+            return "🎯"
+        if "trend" in text_lower or "growth" in text_lower or "increase" in text_lower or "rise" in text_lower:
+            return "📈"
+        if "decrease" in text_lower or "decline" in text_lower or "drop" in text_lower or "loss" in text_lower:
+            return "📉"
+        if "missing" in text_lower or "null" in text_lower or "empty" in text_lower or "blank" in text_lower or "nan" in text_lower:
+            return "🔍"
+        if "duplicate" in text_lower or "repeat" in text_lower or "redundant" in text_lower:
+            return "🔄"
+        if "error" in text_lower or "fail" in text_lower or "wrong" in text_lower or "invalid" in text_lower or "issue" in text_lower or "warning" in text_lower or "caution" in text_lower:
+            return "⚠️"
+        if "number" in text_lower or "count" in text_lower or "sum" in text_lower or "total" in text_lower or "average" in text_lower or "mean" in text_lower or "median" in text_lower or "percent" in text_lower or "%" in text_lower:
+            return "📊"
+        if "check" in text_lower or "done" in text_lower or "success" in text_lower or "verify" in text_lower or "complete" in text_lower or "resolve" in text_lower:
+            return "✅"
+        if "important" in text_lower or "key" in text_lower or "critical" in text_lower or "significant" in text_lower or "essential" in text_lower:
+            return "🔑"
+        if "customer" in text_lower or "user" in text_lower or "segment" in text_lower or "people" in text_lower or "demographic" in text_lower:
+            return "👥"
+        if "cost" in text_lower or "price" in text_lower or "expense" in text_lower or "spend" in text_lower or "revenue" in text_lower or "profit" in text_lower or "sales" in text_lower or "financial" in text_lower or "dollar" in text_lower or "amount" in text_lower:
+            return "💰"
+        if "time" in text_lower or "date" in text_lower or "month" in text_lower or "year" in text_lower or "weekly" in text_lower or "daily" in text_lower or "hourly" in text_lower:
+            return "📅"
+        if "speed" in text_lower or "fast" in text_lower or "slow" in text_lower or "performance" in text_lower or "optimize" in text_lower or "quick" in text_lower or "accelerate" in text_lower:
+            return "⚡"
+        if "compare" in text_lower or "versus" in text_lower or "vs" in text_lower or "difference" in text_lower or "diff" in text_lower:
+            return "⚖️"
+        if "future" in text_lower or "predict" in text_lower or "forecast" in text_lower or "projection" in text_lower:
+            return "🔮"
+        return "•"
+
+    def _add_kpi_card(self, slide, left, top, width, height, title, value, emoji=""):
+        card = slide.shapes.add_shape(
+            MSO_SHAPE.ROUNDED_RECTANGLE,
+            left, top, width, height
+        )
+        card.fill.solid()
+        card.fill.fore_color.rgb = RGBColor(255, 255, 255)
+        card.line.color.rgb = RGBColor(226, 232, 240)
+        card.line.width = Pt(1.5)
+        
+        value_box = slide.shapes.add_textbox(
+            left + Inches(0.15),
+            top + Inches(0.15),
+            width - Inches(0.3),
+            Inches(0.9)
+        )
+        tf_val = value_box.text_frame
+        tf_val.word_wrap = True
+        tf_val.clear()
+        p_val = tf_val.paragraphs[0]
+        p_val.text = f"{emoji} {value}" if emoji else str(value)
+        p_val.font.name = "Arial"
+        p_val.font.size = Pt(30)
+        p_val.font.bold = True
+        p_val.font.color.rgb = RGBColor(13, 148, 136) # Teal value accent
+        
+        title_box = slide.shapes.add_textbox(
+            left + Inches(0.15),
+            top + Inches(1.05),
+            width - Inches(0.3),
+            Inches(0.6)
+        )
+        tf_title = title_box.text_frame
+        tf_title.word_wrap = True
+        tf_title.clear()
+        p_title = tf_title.paragraphs[0]
+        p_title.text = title
+        p_title.font.name = "Arial"
+        p_title.font.size = Pt(14)
+        p_title.font.bold = True
+        p_title.font.color.rgb = RGBColor(71, 85, 105) # Slate-600
 
     def _clean_text(self, value):
         if value is None:
@@ -287,11 +392,13 @@ class PresentationService:
 
             is_bullet = clean_line.startswith("- ")
             if is_bullet:
-                p_obj.text = clean_line[2:]
+                bullet_content = clean_line[2:].strip()
+                emoji_bullet = self._get_emoji_for_text(bullet_content)
+                p_obj.text = f"{emoji_bullet}  {bullet_content}"
                 self._set_para_indent(
                     p_elem,
-                    left_emu=Inches(0.35),
-                    first_line_emu=-Inches(0.20),
+                    left_emu=Inches(0.42),
+                    first_line_emu=-Inches(0.26),
                 )
             else:
                 p_obj.text = clean_line
@@ -303,12 +410,12 @@ class PresentationService:
 
             p_obj.font.name = "Arial"
             p_obj.font.size = Pt(computed_font_size)
-            p_obj.font.color.rgb = RGBColor(31, 41, 55)
+            p_obj.font.color.rgb = RGBColor(51, 65, 85) # Slate 700 text color
             self._set_para_space_after(p_elem, pt_value=space_after)
 
             if not is_bullet and not clean_line.startswith("  ") and len(clean_line) < 58:
                 p_obj.font.bold = True
-                p_obj.font.color.rgb = RGBColor(22, 83, 126)
+                p_obj.font.color.rgb = RGBColor(15, 23, 42) # Slate 900 bold headings
 
     def _add_body_lines(self, slide, lines, top=1.22, font_size=17, max_lines=14):
         # Truncate lines to prevent overflow
@@ -316,15 +423,29 @@ class PresentationService:
 
         if len(lines) <= 8:
             # Single column layout for shorter text
-            computed_font_size = 16
+            computed_font_size = 15
             space_after = 10
+            
+            # Draw a beautiful card shape behind the single column
+            card = slide.shapes.add_shape(
+                MSO_SHAPE.ROUNDED_RECTANGLE,
+                Inches(0.65),
+                Inches(top + 0.08),
+                Inches(12.03),
+                Inches(5.45)
+            )
+            card.fill.solid()
+            card.fill.fore_color.rgb = RGBColor(255, 255, 255) # White card
+            card.line.color.rgb = RGBColor(226, 232, 240) # Slate 200 border
+            card.line.width = Pt(1.5)
+            
             self._add_textbox_column(
                 slide,
                 lines,
-                left=Inches(0.85),
-                top=Inches(top),
-                width=Inches(11.7),
-                height=Inches(5.35),
+                left=Inches(0.95),
+                top=Inches(top + 0.25),
+                width=Inches(11.43),
+                height=Inches(5.1),
                 computed_font_size=computed_font_size,
                 space_after=space_after
             )
@@ -361,7 +482,7 @@ class PresentationService:
 
             max_col_lines = max(len(col1), len(col2))
             if max_col_lines <= 8:
-                computed_font_size = 15
+                computed_font_size = 14
                 space_after = 8
             elif max_col_lines <= 12:
                 computed_font_size = 13
@@ -373,13 +494,40 @@ class PresentationService:
                 computed_font_size = 9.5
                 space_after = 2
 
+            # Col 1 Card background
+            card1 = slide.shapes.add_shape(
+                MSO_SHAPE.ROUNDED_RECTANGLE,
+                Inches(0.65),
+                Inches(top + 0.08),
+                Inches(5.8),
+                Inches(5.45)
+            )
+            card1.fill.solid()
+            card1.fill.fore_color.rgb = RGBColor(255, 255, 255)
+            card1.line.color.rgb = RGBColor(226, 232, 240)
+            card1.line.width = Pt(1.5)
+            
+            # Col 2 Card background
+            if col2:
+                card2 = slide.shapes.add_shape(
+                    MSO_SHAPE.ROUNDED_RECTANGLE,
+                    Inches(6.88),
+                    Inches(top + 0.08),
+                    Inches(5.8),
+                    Inches(5.45)
+                )
+                card2.fill.solid()
+                card2.fill.fore_color.rgb = RGBColor(255, 255, 255)
+                card2.line.color.rgb = RGBColor(226, 232, 240)
+                card2.line.width = Pt(1.5)
+
             self._add_textbox_column(
                 slide,
                 col1,
-                left=Inches(0.85),
-                top=Inches(top),
-                width=Inches(5.6),
-                height=Inches(5.35),
+                left=Inches(0.95),
+                top=Inches(top + 0.25),
+                width=Inches(5.2),
+                height=Inches(5.1),
                 computed_font_size=computed_font_size,
                 space_after=space_after
             )
@@ -387,82 +535,213 @@ class PresentationService:
                 self._add_textbox_column(
                     slide,
                     col2,
-                    left=Inches(6.85),
-                    top=Inches(top),
-                    width=Inches(5.6),
-                    height=Inches(5.35),
+                    left=Inches(7.18),
+                    top=Inches(top + 0.25),
+                    width=Inches(5.2),
+                    height=Inches(5.1),
                     computed_font_size=computed_font_size,
                     space_after=space_after
                 )
 
     def _add_title_slide(self, prs, file_name):
-        slide = self._blank_slide(prs, "AI Data Analyst Report")
+        slide = prs.slides.add_slide(prs.slide_layouts[6])
+        
+        # Dark solid background
+        background = slide.background.fill
+        background.solid()
+        background.fore_color.rgb = RGBColor(15, 23, 42) # Slate 900
+        
+        # Decorative geometric triangle
+        accent_shape = slide.shapes.add_shape(
+            MSO_SHAPE.RIGHT_TRIANGLE,
+            Inches(8.5), Inches(0), Inches(4.833), Inches(7.5)
+        )
+        accent_shape.fill.solid()
+        accent_shape.fill.fore_color.rgb = RGBColor(30, 41, 59) # Slate 800
+        accent_shape.line.fill.background()
+        accent_shape.rotation = 180
+        
+        # Title text box
+        title_box = slide.shapes.add_textbox(
+            Inches(1.0),
+            Inches(2.0),
+            Inches(10.0),
+            Inches(1.5),
+        )
+        frame = title_box.text_frame
+        frame.word_wrap = True
+        frame.clear()
+        p = frame.paragraphs[0]
+        p.text = "📊 AI Data Analyst Report"
+        p.font.name = "Arial"
+        p.font.size = Pt(44)
+        p.font.bold = True
+        p.font.color.rgb = RGBColor(255, 255, 255)
+        
+        # Subtitle text box
         subtitle = slide.shapes.add_textbox(
-            Inches(0.9),
-            Inches(1.55),
-            Inches(11.4),
-            Inches(0.7),
+            Inches(1.0),
+            Inches(3.3),
+            Inches(10.0),
+            Inches(1.0),
         )
         frame = subtitle.text_frame
+        frame.word_wrap = True
         frame.clear()
         p = frame.paragraphs[0]
-        p.text = f"Dataset: {file_name}"
-        p.font.size = Pt(22)
-        p.font.color.rgb = RGBColor(66, 97, 117)
-
-        accent = slide.shapes.add_shape(
-            MSO_SHAPE.RECTANGLE,
-            Inches(0.9),
-            Inches(2.7),
-            Inches(11.3),
-            Inches(2.7),
+        clean_file = os.path.basename(file_name)
+        p.text = f"📂 Dataset: {clean_file}"
+        p.font.name = "Arial"
+        p.font.size = Pt(20)
+        p.font.color.rgb = RGBColor(148, 163, 184) # Slate 400
+        
+        # Descriptive block
+        desc_box = slide.shapes.add_textbox(
+            Inches(1.0),
+            Inches(4.8),
+            Inches(8.5),
+            Inches(1.5),
         )
-        accent.fill.solid()
-        accent.fill.fore_color.rgb = RGBColor(232, 247, 255)
-        accent.line.color.rgb = RGBColor(169, 215, 239)
-
-        label = slide.shapes.add_textbox(
-            Inches(1.25),
-            Inches(3.25),
-            Inches(10.6),
-            Inches(1.3),
-        )
-        frame = label.text_frame
+        frame = desc_box.text_frame
+        frame.word_wrap = True
         frame.clear()
         p = frame.paragraphs[0]
-        p.text = "Automated profile, insights, recommendations, and selected visual evidence"
-        p.font.size = Pt(24)
-        p.font.bold = True
-        p.font.color.rgb = RGBColor(22, 119, 201)
-        p.alignment = PP_ALIGN.CENTER
+        p.text = "✨ Automated profile, deep insights, strategic recommendations, and selected visual evidence."
+        p.font.name = "Arial"
+        p.font.size = Pt(16)
+        p.font.italic = True
+        p.font.color.rgb = RGBColor(13, 148, 136) # Teal accent
 
     def _add_dataset_overview(self, prs, profile):
-        slide = self._blank_slide(prs, "Dataset Overview")
+        slide = self._blank_slide(prs, "🔍 Dataset Overview")
         rows = profile.get("rows", 0)
         columns = profile.get("columns", 0)
         duplicates = profile.get("duplicates", 0)
         column_names = profile.get("column_names", [])
-        lines = [
-            f"Rows: {rows}",
-            f"Columns: {columns}",
-            f"Duplicate rows: {duplicates}",
-            f"Important columns preview: {', '.join(column_names[:12])}",
-        ]
-        self._add_body_lines(slide, self._wrapped_lines(lines), font_size=17, max_lines=12)
+
+        # Format number with commas
+        formatted_rows = f"{rows:,}" if isinstance(rows, (int, float)) else str(rows)
+        formatted_cols = f"{columns:,}" if isinstance(columns, (int, float)) else str(columns)
+        formatted_dups = f"{duplicates:,}" if isinstance(duplicates, (int, float)) else str(duplicates)
+
+        # 3 KPI Cards side-by-side
+        self._add_kpi_card(slide, Inches(0.65), Inches(1.4), Inches(3.7), Inches(1.8), "Total Records", formatted_rows, "📊")
+        self._add_kpi_card(slide, Inches(4.75), Inches(1.4), Inches(3.7), Inches(1.8), "Total Fields (Columns)", formatted_cols, "🗂️")
+        self._add_kpi_card(slide, Inches(8.85), Inches(1.4), Inches(3.7), Inches(1.8), "Duplicate Rows", formatted_dups, "🔄")
+
+        # Column Preview Card below
+        col_card = slide.shapes.add_shape(
+            MSO_SHAPE.ROUNDED_RECTANGLE,
+            Inches(0.65), Inches(3.55), Inches(12.03), Inches(3.3)
+        )
+        col_card.fill.solid()
+        col_card.fill.fore_color.rgb = RGBColor(255, 255, 255)
+        col_card.line.color.rgb = RGBColor(226, 232, 240)
+        col_card.line.width = Pt(1.5)
+        
+        preview_box = slide.shapes.add_textbox(
+            Inches(0.95), Inches(3.75), Inches(11.43), Inches(2.9)
+        )
+        tf = preview_box.text_frame
+        tf.word_wrap = True
+        tf.clear()
+        
+        p0 = tf.paragraphs[0]
+        p0.text = "📋 Column Preview"
+        p0.font.name = "Arial"
+        p0.font.size = Pt(18)
+        p0.font.bold = True
+        p0.font.color.rgb = RGBColor(30, 41, 59)
+        
+        p1 = tf.add_paragraph()
+        p1.text = "Here are the primary fields detected in the dataset:"
+        p1.font.name = "Arial"
+        p1.font.size = Pt(13)
+        p1.font.color.rgb = RGBColor(100, 116, 139)
+        p1.space_before = Pt(6)
+        
+        p2 = tf.add_paragraph()
+        cols_text = ", ".join(column_names[:24])
+        if len(column_names) > 24:
+            cols_text += f" (+ {len(column_names) - 24} more)"
+        p2.text = cols_text
+        p2.font.name = "Arial"
+        p2.font.size = Pt(13)
+        p2.font.color.rgb = RGBColor(71, 85, 105)
+        p2.line_spacing = 1.3
+        p2.space_before = Pt(8)
 
     def _add_data_quality_slide(self, prs, quality_report):
-        slide = self._blank_slide(prs, "Data Quality Assessment")
+        slide = self._blank_slide(prs, "🛡️ Data Quality Assessment")
         duplicates = quality_report.get("duplicates", 0)
         constant_columns = len(quality_report.get("constant_columns", []))
         high_cardinality = len(quality_report.get("high_cardinality", {}))
-        missing_values = sum(quality_report.get("missing_values", {}).values())
-        lines = [
-            f"Duplicate rows: {duplicates}",
-            f"Missing values: {missing_values}",
-            f"Constant columns: {constant_columns}",
-            f"High-cardinality columns: {high_cardinality}",
-        ]
-        self._add_body_lines(slide, self._wrapped_lines(lines), font_size=17, max_lines=12)
+        
+        # Safely handle missing values counting
+        missing_dict = quality_report.get("missing_values", {})
+        if isinstance(missing_dict, dict):
+            missing_values = sum(missing_dict.values())
+        elif isinstance(missing_dict, (int, float)):
+            missing_values = int(missing_dict)
+        else:
+            missing_values = 0
+
+        # Format metrics
+        formatted_dups = f"{duplicates:,}" if isinstance(duplicates, (int, float)) else str(duplicates)
+        formatted_miss = f"{missing_values:,}" if isinstance(missing_values, (int, float)) else str(missing_values)
+        formatted_const = f"{constant_columns:,}" if isinstance(constant_columns, (int, float)) else str(constant_columns)
+        formatted_card = f"{high_cardinality:,}" if isinstance(high_cardinality, (int, float)) else str(high_cardinality)
+
+        # 4 KPI Cards side-by-side
+        self._add_kpi_card(slide, Inches(0.65), Inches(1.4), Inches(2.7), Inches(1.8), "Duplicate Rows", formatted_dups, "👥")
+        self._add_kpi_card(slide, Inches(3.75), Inches(1.4), Inches(2.7), Inches(1.8), "Missing Cells", formatted_miss, "🔍")
+        self._add_kpi_card(slide, Inches(6.85), Inches(1.4), Inches(2.7), Inches(1.8), "Constant Fields", formatted_const, "🔄")
+        self._add_kpi_card(slide, Inches(9.95), Inches(1.4), Inches(2.7), Inches(1.8), "High Cardinality", formatted_card, "⚡")
+
+        # Summary box below
+        summary_card = slide.shapes.add_shape(
+            MSO_SHAPE.ROUNDED_RECTANGLE,
+            Inches(0.65), Inches(3.55), Inches(12.03), Inches(3.3)
+        )
+        summary_card.fill.solid()
+        summary_card.fill.fore_color.rgb = RGBColor(255, 255, 255)
+        summary_card.line.color.rgb = RGBColor(226, 232, 240)
+        summary_card.line.width = Pt(1.5)
+        
+        summary_box = slide.shapes.add_textbox(
+            Inches(0.95), Inches(3.75), Inches(11.43), Inches(2.9)
+        )
+        tf = summary_box.text_frame
+        tf.word_wrap = True
+        tf.clear()
+        
+        p0 = tf.paragraphs[0]
+        p0.text = "🛡️ Assessment Summary"
+        p0.font.name = "Arial"
+        p0.font.size = Pt(18)
+        p0.font.bold = True
+        p0.font.color.rgb = RGBColor(30, 41, 59)
+        
+        p1 = tf.add_paragraph()
+        p1.text = "• Duplicates: Repeated rows can lead to statistical bias and should be cleaned."
+        p1.font.name = "Arial"
+        p1.font.size = Pt(13)
+        p1.font.color.rgb = RGBColor(71, 85, 105)
+        p1.space_before = Pt(6)
+        
+        p2 = tf.add_paragraph()
+        p2.text = "• Missing Values: High concentrations of null data require appropriate imputation or removal."
+        p2.font.name = "Arial"
+        p2.font.size = Pt(13)
+        p2.font.color.rgb = RGBColor(71, 85, 105)
+        p2.space_before = Pt(4)
+        
+        p3 = tf.add_paragraph()
+        p3.text = "• Constant & Cardinality: Single-value columns contain no descriptive power; extremely high unique identifier columns should be modeled carefully."
+        p3.font.name = "Arial"
+        p3.font.size = Pt(13)
+        p3.font.color.rgb = RGBColor(71, 85, 105)
+        p3.space_before = Pt(4)
 
     def _add_analysis_slide(self, prs, analysis_result):
         if isinstance(analysis_result, dict):
@@ -477,7 +756,9 @@ class PresentationService:
         analysis_default = f"{base_name} Analysis" if base_name else "Analysis Results"
         analysis_title = self._determine_slide_title(result_text, analysis_default)
 
-        self._add_text_slides(prs, analysis_title, result_text)
+        # Make sure title is styled with emoji
+        final_title = analysis_title if analysis_title.startswith("📈") else f"📈 {analysis_title}"
+        self._add_text_slides(prs, final_title, result_text)
 
     def _add_visualization_slides(self, prs, chart_items=None):
         if not chart_items:
@@ -498,32 +779,51 @@ class PresentationService:
             if not path or not os.path.exists(path):
                 continue
 
-            slide = self._blank_slide(prs, title)
+            # Ensure header has visualization emoji
+            slide_title = title if title.startswith("🖼️") else f"🖼️ {title}"
+            slide = self._blank_slide(prs, slide_title)
+            
+            # Draw a beautiful card shape behind the chart
+            card = slide.shapes.add_shape(
+                MSO_SHAPE.ROUNDED_RECTANGLE,
+                Inches(1.5),
+                Inches(1.35),
+                Inches(10.33),
+                Inches(5.45)
+            )
+            card.fill.solid()
+            card.fill.fore_color.rgb = RGBColor(255, 255, 255)
+            card.line.color.rgb = RGBColor(226, 232, 240)
+            card.line.width = Pt(1.5)
+
             try:
                 slide.shapes.add_picture(
                     path,
                     Inches(2.16),
-                    Inches(1.25),
+                    Inches(1.55),
                     width=Inches(9.0),
+                    height=Inches(4.15),
                 )
             except Exception:
                 continue
 
             cap = slide.shapes.add_textbox(
-                Inches(1.0),
-                Inches(6.45),
-                Inches(11.3),
-                Inches(0.55),
+                Inches(1.8),
+                Inches(5.8),
+                Inches(9.73),
+                Inches(0.8),
             )
             frame = cap.text_frame
             frame.clear()
+            frame.word_wrap = True
             p = frame.paragraphs[0]
             display_caption = self._clean_text(caption)[0] if self._clean_text(caption) else str(title)
             display_caption = re.sub(r"\*\*(.*?)\*\*", r"\1", display_caption)
             display_caption = re.sub(r"^#+\s*", "", display_caption)
             p.text = display_caption
+            p.font.name = "Arial"
             p.font.size = Pt(13)
-            p.font.color.rgb = RGBColor(66, 97, 117)
+            p.font.color.rgb = RGBColor(71, 85, 105)
             p.alignment = PP_ALIGN.CENTER
 
     def _add_text_slides(self, prs, title, text):
@@ -582,31 +882,77 @@ class PresentationService:
             chunks = self._split_section_into_chunks(section_lines, max_chars=1200)
 
             for idx, chunk in enumerate(chunks):
+                # Ensure the section title has a clean emoji representing it
+                decorated_title = section_title
+                if not any(char in decorated_title for char in ["📊", "🔍", "🛡️", "📈", "💡", "🎯", "🏁", "🖼️"]):
+                    emoji_prefix = self._get_emoji_for_text(decorated_title)
+                    if emoji_prefix and emoji_prefix != "•":
+                        decorated_title = f"{emoji_prefix} {decorated_title}"
+                    else:
+                        decorated_title = f"📄 {decorated_title}"
+
                 slide_title = (
-                    section_title
+                    decorated_title
                     if idx == 0
-                    else f"{section_title} (Continued)"
+                    else f"{decorated_title} (Continued)"
                 )
                 slide = self._blank_slide(prs, slide_title)
                 self._add_body_lines(slide, chunk, top=1.22)
 
     def _add_conclusion_slide(self, prs):
-        slide = self._blank_slide(prs, "Conclusion")
-        lines = [
-            "This report was automatically generated by the AI Data Analyst Agent.",
-            (
-                "The workflow included data quality assessment, dataset profiling, "
-                "AI-powered analysis, visualization, business insights, and strategic "
-                "recommendations."
-            ),
-        ]
-        self._add_body_lines(
-            slide,
-            self._wrapped_lines(lines),
-            top=1.7,
-            font_size=18,
-            max_lines=7,
+        slide = prs.slides.add_slide(prs.slide_layouts[6])
+        background = slide.background.fill
+        background.solid()
+        background.fore_color.rgb = RGBColor(15, 23, 42) # Slate 900
+        
+        # Decorative shape
+        accent_shape = slide.shapes.add_shape(
+            MSO_SHAPE.RIGHT_TRIANGLE,
+            Inches(0), Inches(0), Inches(4.5), Inches(7.5)
         )
+        accent_shape.fill.solid()
+        accent_shape.fill.fore_color.rgb = RGBColor(30, 41, 59) # Slate 800
+        accent_shape.line.fill.background()
+        
+        # Text box
+        text_box = slide.shapes.add_textbox(
+            Inches(1.5),
+            Inches(2.2),
+            Inches(10.3),
+            Inches(4.0),
+        )
+        frame = text_box.text_frame
+        frame.word_wrap = True
+        frame.clear()
+        
+        p = frame.paragraphs[0]
+        p.text = "🏁 Conclusion & Next Steps"
+        p.font.name = "Arial"
+        p.font.size = Pt(36)
+        p.font.bold = True
+        p.font.color.rgb = RGBColor(255, 255, 255)
+        
+        p2 = frame.add_paragraph()
+        p2.text = "This report was automatically generated by the AI Data Analyst Agent."
+        p2.font.name = "Arial"
+        p2.font.size = Pt(18)
+        p2.font.color.rgb = RGBColor(148, 163, 184)
+        p2.space_before = Pt(20)
+        
+        p3 = frame.add_paragraph()
+        p3.text = "🔄 The workflow included data quality assessment, dataset profiling, AI-powered analysis, visualization, business insights, and strategic recommendations."
+        p3.font.name = "Arial"
+        p3.font.size = Pt(18)
+        p3.font.color.rgb = RGBColor(148, 163, 184)
+        p3.space_before = Pt(12)
+        
+        p4 = frame.add_paragraph()
+        p4.text = "🚀 Use these findings to drive strategic business decisions and optimize your processes."
+        p4.font.name = "Arial"
+        p4.font.size = Pt(18)
+        p4.font.bold = True
+        p4.font.color.rgb = RGBColor(13, 148, 136) # Teal
+        p4.space_before = Pt(16)
 
     def _split_section_into_chunks(self, lines, max_chars=1200):
         """
