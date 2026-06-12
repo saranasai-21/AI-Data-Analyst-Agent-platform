@@ -2024,12 +2024,81 @@ def render_report(df, charts, profile, quality_report):
                     f"Recommendations: {recommendations}\n"
                 )
                 try:
+                    if not GEMINI_API_KEY:
+                        raise ValueError("No Gemini API key configured")
                     json_str = generate_text(GEMINI_API_KEY, prompt, max_output_tokens=4096)
                     clean_str = re.sub(r'```(?:json)?\n?(.*?)\n?```', r'\1', json_str.strip(), flags=re.DOTALL)
                     st.session_state.presentation_state = json.loads(clean_str)
                     st.success("Presentation generated! Review and edit the slides below.")
                 except Exception as e:
-                    st.error(f"Failed to generate JSON state: {e}")
+                    st.warning(f"Using default slide template because AI generation failed: {e}")
+                    fallback_state = {
+                        "slides": [
+                            {
+                                "id": "slide_1",
+                                "editable": True,
+                                "layout": "title_slide",
+                                "title": "Executive Data Analytics Report",
+                                "elements": [
+                                    {
+                                        "type": "title",
+                                        "text": "Executive Data Analytics Report",
+                                        "left": 80,
+                                        "top": 120,
+                                        "width": 800,
+                                        "fontSize": 44,
+                                        "fill": "#1e293b"
+                                    },
+                                    {
+                                        "type": "textbox",
+                                        "text": f"Dataset: {StateManager.get_file_name() or 'Active Dataset'}\nGenerated automatically. Double click any text block to edit and format.",
+                                        "left": 80,
+                                        "top": 240,
+                                        "width": 800,
+                                        "fontSize": 24,
+                                        "fill": "#64748b"
+                                    }
+                                ]
+                            },
+                            {
+                                "id": "slide_2",
+                                "editable": True,
+                                "layout": "kpi_cards",
+                                "title": "Key Metrics & Recommendations",
+                                "elements": [
+                                    {
+                                        "type": "title",
+                                        "text": "Key Metrics & Recommendations",
+                                        "left": 80,
+                                        "top": 50,
+                                        "width": 800,
+                                        "fontSize": 36,
+                                        "fill": "#1e293b"
+                                    },
+                                    {
+                                        "type": "textbox",
+                                        "text": "Recommendations Overview:",
+                                        "left": 80,
+                                        "top": 150,
+                                        "width": 800,
+                                        "fontSize": 24,
+                                        "fill": "#4f46e5"
+                                    },
+                                    {
+                                        "type": "textbox",
+                                        "text": "- Improve completeness of critical columns by imputation.\n- Track anomalies in key financial metrics.\n- Establish standard pipelines for data ingestion.",
+                                        "left": 80,
+                                        "top": 220,
+                                        "width": 800,
+                                        "fontSize": 20,
+                                        "fill": "#475569"
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                    st.session_state.presentation_state = fallback_state
+                    st.success("Default presentation template loaded! Review and edit the slides below.")
 
     with col_btn_pdf:
         if st.button("Build PDF Report", use_container_width=True):
@@ -2066,6 +2135,7 @@ def render_report(df, charts, profile, quality_report):
             # The component returns the updated state whenever the canvas changes
             updated_state = st_ppt_editor(state, key="ppt_editor_component")
             if updated_state and isinstance(updated_state, dict) and "slides" in updated_state:
+                st.session_state.presentation_state = updated_state
                 state = updated_state
         except Exception as e:
             st.error(f"Failed to load Interactive Editor Component: {e}")

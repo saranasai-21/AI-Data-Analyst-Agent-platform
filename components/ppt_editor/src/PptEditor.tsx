@@ -7,7 +7,7 @@ const SLIDE_WIDTH = 960;
 const SLIDE_HEIGHT = 540;
 
 const PptEditor = ({ args }: ComponentProps) => {
-  const { presentation_state } = args;
+  const { presentation_state } = args || {};
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [canvas, setCanvas] = useState<fabric.Canvas | null>(null);
   const [slides, setSlides] = useState<any[]>(presentation_state?.slides || []);
@@ -15,15 +15,34 @@ const PptEditor = ({ args }: ComponentProps) => {
   const [isLocked, setIsLocked] = useState(false);
   const [selectedObj, setSelectedObj] = useState<fabric.Object | null>(null);
 
+  const lastSentStateRef = useRef<string>('');
+  const activeSlideIdxRef = useRef(activeSlideIdx);
+  const slidesRef = useRef(slides);
+
+  useEffect(() => {
+    activeSlideIdxRef.current = activeSlideIdx;
+  }, [activeSlideIdx]);
+
+  useEffect(() => {
+    slidesRef.current = slides;
+  }, [slides]);
+
   useEffect(() => {
     Streamlit.setFrameHeight(600);
   });
 
+  // Sync state from Streamlit if it changes externally
   useEffect(() => {
     if (presentation_state?.slides) {
-      setSlides(presentation_state.slides);
+      const stateStr = JSON.stringify(presentation_state.slides);
+      if (stateStr !== lastSentStateRef.current) {
+        setSlides(presentation_state.slides);
+        if (canvas) {
+          loadSlide(activeSlideIdx, presentation_state.slides);
+        }
+      }
     }
-  }, [presentation_state]);
+  }, [presentation_state, canvas, activeSlideIdx]);
 
   useEffect(() => {
     if (canvasRef.current && !canvas) {
@@ -39,7 +58,7 @@ const PptEditor = ({ args }: ComponentProps) => {
       c.on('selection:cleared', () => setSelectedObj(null));
       
       c.on('object:modified', () => {
-        saveCanvasToState(c, activeSlideIdx);
+        saveCanvasToState(c, activeSlideIdxRef.current);
       });
       
       setCanvas(c);
@@ -52,15 +71,16 @@ const PptEditor = ({ args }: ComponentProps) => {
     };
   }, [canvasRef]);
 
-  // Load active slide
+  // Load active slide when slide index changes
   useEffect(() => {
     if (!canvas || slides.length === 0) return;
-    loadSlide(activeSlideIdx);
+    loadSlide(activeSlideIdx, slides);
   }, [activeSlideIdx, canvas]);
 
-  const loadSlide = (idx: number) => {
+  const loadSlide = (idx: number, currentSlides = slides) => {
     if (!canvas) return;
-    const slide = slides[idx];
+    const slide = currentSlides[idx];
+    if (!slide) return;
     canvas.clear();
     canvas.setBackgroundColor('#ffffff', () => {});
     
@@ -112,7 +132,8 @@ const PptEditor = ({ args }: ComponentProps) => {
   };
 
   const saveCanvasToState = (c: fabric.Canvas, idx: number) => {
-    const updatedSlides = [...slides];
+    if (idx < 0 || idx >= slidesRef.current.length) return;
+    const updatedSlides = JSON.parse(JSON.stringify(slidesRef.current));
     const objects = c.getObjects();
     
     const elements = objects.map(obj => {
@@ -141,7 +162,9 @@ const PptEditor = ({ args }: ComponentProps) => {
     updatedSlides[idx].elements = elements;
     setSlides(updatedSlides);
     
-    // Send state back to Python
+    // Send state back to Python and track what we sent
+    const stateStr = JSON.stringify(updatedSlides);
+    lastSentStateRef.current = stateStr;
     Streamlit.setComponentValue({ slides: updatedSlides });
   };
 
