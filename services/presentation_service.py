@@ -153,6 +153,30 @@ class PresentationService:
             return "🔮"
         return "•"
 
+    def create_report_from_state(self, presentation_state, output_path="outputs/Editable_AI_Report.pptx"):
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        prs = Presentation()
+        
+        for slide_data in presentation_state.get("slides", []):
+            title = slide_data.get("title", "Slide")
+            
+            text_lines = []
+            for elem in slide_data.get("elements", []):
+                if elem.get("type") in ["textbox", "text"]:
+                    text_lines.append(elem.get("text", ""))
+                
+            combined_text = "\n".join(text_lines)
+            
+            if slide_data.get("layout") == "title_slide":
+                # Hack to pass title as file_name to title slide generator
+                self._add_title_slide(prs, title)
+            else:
+                self._add_text_slides(prs, title, combined_text)
+                
+        self._remove_empty_slides(prs)
+        prs.save(output_path)
+        return output_path
+
     def _add_kpi_card(self, slide, left, top, width, height, title, value, emoji=""):
         card = slide.shapes.add_shape(
             MSO_SHAPE.ROUNDED_RECTANGLE,

@@ -1993,9 +1993,9 @@ def render_report(df, charts, profile, quality_report):
     recommendations = latest.get("recommendations", "No AI recommendations generated yet.")
     analysis_result = latest.get("analysis_result", {"result": "No AI analysis generated yet."})
 
-    col_btn_ppt, col_btn_pdf = st.columns(2)
+    col_btn_ppt, col_btn_pdf, col_btn_edit = st.columns(3)
     with col_btn_ppt:
-        if st.button("Build PPT Report", use_container_width=True):
+        if st.button("Build Static PPT", use_container_width=True):
             chart_items = [
                 (chart.path, chart.title, chart.caption)
                 for chart in selected_charts
@@ -2030,6 +2030,85 @@ def render_report(df, charts, profile, quality_report):
             )
             st.session_state.pdf_report_path = pdf_path
             st.success("PDF report built.")
+
+    with col_btn_edit:
+        if st.button("Generate Editable Draft", use_container_width=True):
+            from core.gemini_service import generate_text
+            from core.config import GEMINI_API_KEY
+            import json
+            import re
+            
+            with st.spinner("Generating editable slide layouts via AI..."):
+                prompt = (
+                    "You are a Presentation Layout Engine.\n"
+                    "Transform the analysis into a JSON presentation state.\n"
+                    "Output ONLY valid JSON matching this schema:\n"
+                    "{\n"
+                    "  \"slides\": [\n"
+                    "    {\n"
+                    "      \"id\": \"slide_1\",\n"
+                    "      \"editable\": true,\n"
+                    "      \"layout\": \"title_slide\",\n"
+                    "      \"title\": \"Slide Title\",\n"
+                    "      \"elements\": [\n"
+                    "        {\"type\": \"textbox\", \"text\": \"...\"}\n"
+                    "      ]\n"
+                    "    }\n"
+                    "  ]\n"
+                    "}\n"
+                    "Supported layouts: title_slide, kpi_cards, visual_analysis, bullet_points.\n"
+                    f"Insights: {insights}\n"
+                    f"Recommendations: {recommendations}\n"
+                )
+                try:
+                    json_str = generate_text(GEMINI_API_KEY, prompt, max_output_tokens=4096)
+                    clean_str = re.sub(r'```(?:json)?\n?(.*?)\n?```', r'\1', json_str.strip(), flags=re.DOTALL)
+                    st.session_state.presentation_state = json.loads(clean_str)
+                    st.success("Editable state generated!")
+                except Exception as e:
+                    st.error(f"Failed to generate JSON state: {e}")
+
+    # Editable UI
+    if "presentation_state" in st.session_state and st.session_state.presentation_state:
+        st.markdown("### 📝 Slide Editor")
+        st.caption("Drag reorder, edit text, or rewrite slides before exporting.")
+        
+        state = st.session_state.presentation_state
+        slides = state.get("slides", [])
+        
+        for i, slide in enumerate(slides):
+            with st.expander(f"Slide {i+1}: {slide.get('title', 'Untitled')}", expanded=False):
+                slide["title"] = st.text_input("Slide Title", value=slide.get("title", ""), key=f"title_{i}")
+                
+                for j, elem in enumerate(slide.get("elements", [])):
+                    elem["text"] = st.text_area(f"Content Block {j+1}", value=elem.get("text", ""), key=f"text_{i}_{j}")
+                    
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    if st.button("🗑️ Delete", key=f"del_{i}"):
+                        slides.pop(i)
+                        st.rerun()
+                with col2:
+                    if st.button("⬆️ Move Up", key=f"up_{i}") and i > 0:
+                        slides[i], slides[i-1] = slides[i-1], slides[i]
+                        st.rerun()
+                with col3:
+                    if st.button("⬇️ Move Down", key=f"down_{i}") and i < len(slides) - 1:
+                        slides[i], slides[i+1] = slides[i+1], slides[i]
+                        st.rerun()
+                with col4:
+                    if st.button("✨ AI Rewrite", key=f"rewrite_{i}"):
+                        st.info("AI rewrite requested. (Premium Feature)")
+                        
+        if st.button("Apply Design & Download PPT", type="primary", use_container_width=True):
+            prs = PresentationService()
+            output_name = safe_filename(StateManager.get_file_name() or "Editable_AI_Report")
+            report_path = prs.create_report_from_state(
+                presentation_state=state,
+                output_path=f"outputs/{output_name}.pptx"
+            )
+            st.session_state.report_path = report_path
+            st.success("Custom PPT built successfully!")
 
     col_dl_ppt, col_dl_pdf = st.columns(2)
     with col_dl_ppt:
