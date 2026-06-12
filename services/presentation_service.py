@@ -195,6 +195,40 @@ class PresentationService:
         p_title.font.bold = True
         p_title.font.color.rgb = RGBColor(71, 85, 105) # Slate-600
 
+    def _get_asset_path(self, filename):
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        workspace_dir = os.path.dirname(current_dir)
+        path = os.path.join(workspace_dir, "assets", filename)
+        if os.path.exists(path):
+            return path
+        fallback = os.path.join("assets", filename)
+        if os.path.exists(fallback):
+            return fallback
+        return None
+
+    def _add_illustration_card(self, slide, left, top, width, height, asset_name):
+        card = slide.shapes.add_shape(
+            MSO_SHAPE.ROUNDED_RECTANGLE,
+            left, top, width, height
+        )
+        card.fill.solid()
+        card.fill.fore_color.rgb = RGBColor(255, 255, 255)
+        card.line.color.rgb = RGBColor(226, 232, 240)
+        card.line.width = Pt(1.5)
+        
+        path = self._get_asset_path(asset_name)
+        if path:
+            pic_width = width - Inches(0.5)
+            try:
+                slide.shapes.add_picture(
+                    path,
+                    left + Inches(0.25),
+                    top + Inches(0.25),
+                    width=pic_width
+                )
+            except Exception:
+                pass
+
     def _clean_text(self, value):
         if value is None:
             text = ""
@@ -421,52 +455,131 @@ class PresentationService:
         # Truncate lines to prevent overflow
         lines = lines[:40]
 
-        if len(lines) <= 8:
-            # Single column layout for shorter text
-            computed_font_size = 15
-            space_after = 10
-            
-            # Draw a beautiful card shape behind the single column
-            card = slide.shapes.add_shape(
+        has_intro = False
+        intro_line = None
+        body_lines = lines
+
+        if lines and not lines[0].startswith("- "):
+            has_intro = True
+            intro_line = lines[0]
+            body_lines = lines[1:]
+
+        # Clean all lines of asterisks (broken bold markdown)
+        if has_intro:
+            intro_line = intro_line.replace("*", "")
+        body_lines = [b.replace("*", "") for b in body_lines]
+
+        # Draw intro block if present
+        intro_height = 0.0
+        if has_intro:
+            intro_height = 1.25
+            card_intro = slide.shapes.add_shape(
                 MSO_SHAPE.ROUNDED_RECTANGLE,
                 Inches(0.65),
                 Inches(top + 0.08),
                 Inches(12.03),
-                Inches(5.45)
+                Inches(intro_height)
+            )
+            card_intro.fill.solid()
+            card_intro.fill.fore_color.rgb = RGBColor(255, 255, 255)
+            card_intro.line.color.rgb = RGBColor(226, 232, 240)
+            card_intro.line.width = Pt(1.5)
+
+            # Text inside intro
+            tb_intro = slide.shapes.add_textbox(
+                Inches(0.95),
+                Inches(top + 0.18),
+                Inches(11.43),
+                Inches(intro_height - 0.2)
+            )
+            tf_intro = tb_intro.text_frame
+            tf_intro.word_wrap = True
+            tf_intro.clear()
+            p_intro = tf_intro.paragraphs[0]
+            p_intro.text = intro_line
+            p_intro.font.name = "Arial"
+            p_intro.font.size = Pt(13.5)
+            p_intro.font.color.rgb = RGBColor(71, 85, 105) # Slate 600
+            p_intro.font.italic = True
+            
+            # Update top for columns
+            top = top + intro_height + 0.15
+
+        # Now handle body_lines layout
+        avail_height = 5.45 - (intro_height + 0.15 if has_intro else 0)
+
+        # Extract slide title to select topic-specific icon on single-column layouts
+        slide_title = ""
+        for shape in slide.shapes:
+            if shape.has_text_frame and shape.text_frame.text:
+                txt = shape.text_frame.text.lower()
+                if "overview" not in txt and "assessment" not in txt:
+                    slide_title = txt
+                    break
+
+        icon_name = "icon_findings.png"
+        if "insight" in slide_title:
+            icon_name = "icon_trends.png"
+        elif "recommend" in slide_title or "opportunity" in slide_title or "strategy" in slide_title:
+            icon_name = "icon_opportunities.png"
+        elif "conclusion" in slide_title:
+            icon_name = "icon_conclusion.png"
+
+        # Decide column count
+        has_subheading = any(b.endswith(":") and len(b) < 45 for b in body_lines)
+        if len(body_lines) <= 5 and not has_subheading:
+            # Single column layout: Left card for text, right card for graphic illustration
+            computed_font_size = 14 if has_intro else 15
+            space_after = 8 if has_intro else 10
+            
+            card = slide.shapes.add_shape(
+                MSO_SHAPE.ROUNDED_RECTANGLE,
+                Inches(0.65),
+                Inches(top + 0.08),
+                Inches(7.5),
+                Inches(avail_height)
             )
             card.fill.solid()
             card.fill.fore_color.rgb = RGBColor(255, 255, 255) # White card
-            card.line.color.rgb = RGBColor(226, 232, 240) # Slate 200 border
+            card.line.color.rgb = RGBColor(226, 232, 240)
             card.line.width = Pt(1.5)
             
             self._add_textbox_column(
                 slide,
-                lines,
+                body_lines,
                 left=Inches(0.95),
-                top=Inches(top + 0.25),
-                width=Inches(11.43),
-                height=Inches(5.1),
+                top=Inches(top + 0.2),
+                width=Inches(6.9),
+                height=Inches(avail_height - 0.25),
                 computed_font_size=computed_font_size,
                 space_after=space_after
             )
+
+            # Draw illustration card on the right
+            self._add_illustration_card(
+                slide,
+                Inches(8.55),
+                Inches(top + 0.08),
+                Inches(4.13),
+                Inches(avail_height),
+                icon_name
+            )
         else:
-            # Group lines by heading to keep headings and their bullets in the same column
+            # Group lines by heading
             groups = []
             current_group = []
-            for line in lines:
+            for line in body_lines:
                 is_bullet = line.startswith("- ")
-                is_heading = not is_bullet and not line.startswith("  ") and len(line) < 58
+                is_heading = (not is_bullet and not line.startswith("  ") and len(line) < 58) or (is_bullet and line.endswith(":") and len(line) < 45)
                 
                 if is_heading:
                     if current_group:
                         groups.append(current_group)
                     current_group = [line]
                 else:
-                    if current_group and not current_group[0].startswith("- "):
+                    if current_group:
                         current_group.append(line)
                     else:
-                        if current_group:
-                            groups.append(current_group)
                         current_group = [line]
             if current_group:
                 groups.append(current_group)
@@ -481,14 +594,14 @@ class PresentationService:
                     col2.extend(group)
 
             max_col_lines = max(len(col1), len(col2))
-            if max_col_lines <= 8:
-                computed_font_size = 14
-                space_after = 8
-            elif max_col_lines <= 12:
-                computed_font_size = 13
+            if max_col_lines <= 5:
+                computed_font_size = 13.5 if has_intro else 14
                 space_after = 6
-            elif max_col_lines <= 18:
-                computed_font_size = 11
+            elif max_col_lines <= 9:
+                computed_font_size = 12 if has_intro else 13
+                space_after = 5
+            elif max_col_lines <= 14:
+                computed_font_size = 10.5 if has_intro else 11.5
                 space_after = 4
             else:
                 computed_font_size = 9.5
@@ -500,7 +613,7 @@ class PresentationService:
                 Inches(0.65),
                 Inches(top + 0.08),
                 Inches(5.8),
-                Inches(5.45)
+                Inches(avail_height)
             )
             card1.fill.solid()
             card1.fill.fore_color.rgb = RGBColor(255, 255, 255)
@@ -514,7 +627,7 @@ class PresentationService:
                     Inches(6.88),
                     Inches(top + 0.08),
                     Inches(5.8),
-                    Inches(5.45)
+                    Inches(avail_height)
                 )
                 card2.fill.solid()
                 card2.fill.fore_color.rgb = RGBColor(255, 255, 255)
@@ -527,7 +640,7 @@ class PresentationService:
                 left=Inches(0.95),
                 top=Inches(top + 0.25),
                 width=Inches(5.2),
-                height=Inches(5.1),
+                height=Inches(avail_height - 0.3),
                 computed_font_size=computed_font_size,
                 space_after=space_after
             )
@@ -538,7 +651,7 @@ class PresentationService:
                     left=Inches(7.18),
                     top=Inches(top + 0.25),
                     width=Inches(5.2),
-                    height=Inches(5.1),
+                    height=Inches(avail_height - 0.3),
                     computed_font_size=computed_font_size,
                     space_after=space_after
                 )
@@ -551,21 +664,35 @@ class PresentationService:
         background.solid()
         background.fore_color.rgb = RGBColor(15, 23, 42) # Slate 900
         
-        # Decorative geometric triangle
-        accent_shape = slide.shapes.add_shape(
-            MSO_SHAPE.RIGHT_TRIANGLE,
-            Inches(8.5), Inches(0), Inches(4.833), Inches(7.5)
-        )
-        accent_shape.fill.solid()
-        accent_shape.fill.fore_color.rgb = RGBColor(30, 41, 59) # Slate 800
-        accent_shape.line.fill.background()
-        accent_shape.rotation = 180
+        # Add the gorgeous cover art image at the right side of the slide
+        cover_art_path = self._get_asset_path("cover_illustration.png")
+        if cover_art_path:
+            try:
+                slide.shapes.add_picture(
+                    cover_art_path,
+                    Inches(7.0),
+                    Inches(0.5),
+                    width=Inches(5.8),
+                    height=Inches(6.5)
+                )
+            except Exception:
+                pass
+        else:
+            # Fallback decorative geometric triangle
+            accent_shape = slide.shapes.add_shape(
+                MSO_SHAPE.RIGHT_TRIANGLE,
+                Inches(8.5), Inches(0), Inches(4.833), Inches(7.5)
+            )
+            accent_shape.fill.solid()
+            accent_shape.fill.fore_color.rgb = RGBColor(30, 41, 59) # Slate 800
+            accent_shape.line.fill.background()
+            accent_shape.rotation = 180
         
         # Title text box
         title_box = slide.shapes.add_textbox(
-            Inches(1.0),
+            Inches(0.8),
             Inches(2.0),
-            Inches(10.0),
+            Inches(6.0),
             Inches(1.5),
         )
         frame = title_box.text_frame
@@ -574,15 +701,15 @@ class PresentationService:
         p = frame.paragraphs[0]
         p.text = "📊 AI Data Analyst Report"
         p.font.name = "Arial"
-        p.font.size = Pt(44)
+        p.font.size = Pt(40)
         p.font.bold = True
         p.font.color.rgb = RGBColor(255, 255, 255)
         
         # Subtitle text box
         subtitle = slide.shapes.add_textbox(
-            Inches(1.0),
+            Inches(0.8),
             Inches(3.3),
-            Inches(10.0),
+            Inches(6.0),
             Inches(1.0),
         )
         frame = subtitle.text_frame
@@ -592,14 +719,14 @@ class PresentationService:
         clean_file = os.path.basename(file_name)
         p.text = f"📂 Dataset: {clean_file}"
         p.font.name = "Arial"
-        p.font.size = Pt(20)
+        p.font.size = Pt(18)
         p.font.color.rgb = RGBColor(148, 163, 184) # Slate 400
         
         # Descriptive block
         desc_box = slide.shapes.add_textbox(
-            Inches(1.0),
-            Inches(4.8),
-            Inches(8.5),
+            Inches(0.8),
+            Inches(4.6),
+            Inches(5.8),
             Inches(1.5),
         )
         frame = desc_box.text_frame
@@ -608,7 +735,7 @@ class PresentationService:
         p = frame.paragraphs[0]
         p.text = "✨ Automated profile, deep insights, strategic recommendations, and selected visual evidence."
         p.font.name = "Arial"
-        p.font.size = Pt(16)
+        p.font.size = Pt(15)
         p.font.italic = True
         p.font.color.rgb = RGBColor(13, 148, 136) # Teal accent
 
@@ -632,7 +759,7 @@ class PresentationService:
         # Column Preview Card below
         col_card = slide.shapes.add_shape(
             MSO_SHAPE.ROUNDED_RECTANGLE,
-            Inches(0.65), Inches(3.55), Inches(12.03), Inches(3.3)
+            Inches(0.65), Inches(3.55), Inches(7.5), Inches(3.3)
         )
         col_card.fill.solid()
         col_card.fill.fore_color.rgb = RGBColor(255, 255, 255)
@@ -640,7 +767,7 @@ class PresentationService:
         col_card.line.width = Pt(1.5)
         
         preview_box = slide.shapes.add_textbox(
-            Inches(0.95), Inches(3.75), Inches(11.43), Inches(2.9)
+            Inches(0.95), Inches(3.75), Inches(6.9), Inches(2.9)
         )
         tf = preview_box.text_frame
         tf.word_wrap = True
@@ -654,22 +781,25 @@ class PresentationService:
         p0.font.color.rgb = RGBColor(30, 41, 59)
         
         p1 = tf.add_paragraph()
-        p1.text = "Here are the primary fields detected in the dataset:"
+        p1.text = "Primary fields detected:"
         p1.font.name = "Arial"
         p1.font.size = Pt(13)
         p1.font.color.rgb = RGBColor(100, 116, 139)
         p1.space_before = Pt(6)
         
         p2 = tf.add_paragraph()
-        cols_text = ", ".join(column_names[:24])
-        if len(column_names) > 24:
-            cols_text += f" (+ {len(column_names) - 24} more)"
+        cols_text = ", ".join(column_names[:16])
+        if len(column_names) > 16:
+            cols_text += f" (+ {len(column_names) - 16} more)"
         p2.text = cols_text
         p2.font.name = "Arial"
-        p2.font.size = Pt(13)
+        p2.font.size = Pt(12)
         p2.font.color.rgb = RGBColor(71, 85, 105)
         p2.line_spacing = 1.3
         p2.space_before = Pt(8)
+
+        # Visual Illustration Card on the right
+        self._add_illustration_card(slide, Inches(8.55), Inches(3.55), Inches(4.13), Inches(3.3), "icon_summary.png")
 
     def _add_data_quality_slide(self, prs, quality_report):
         slide = self._blank_slide(prs, "🛡️ Data Quality Assessment")
@@ -701,7 +831,7 @@ class PresentationService:
         # Summary box below
         summary_card = slide.shapes.add_shape(
             MSO_SHAPE.ROUNDED_RECTANGLE,
-            Inches(0.65), Inches(3.55), Inches(12.03), Inches(3.3)
+            Inches(0.65), Inches(3.55), Inches(7.5), Inches(3.3)
         )
         summary_card.fill.solid()
         summary_card.fill.fore_color.rgb = RGBColor(255, 255, 255)
@@ -709,7 +839,7 @@ class PresentationService:
         summary_card.line.width = Pt(1.5)
         
         summary_box = slide.shapes.add_textbox(
-            Inches(0.95), Inches(3.75), Inches(11.43), Inches(2.9)
+            Inches(0.95), Inches(3.75), Inches(6.9), Inches(2.9)
         )
         tf = summary_box.text_frame
         tf.word_wrap = True
@@ -725,23 +855,26 @@ class PresentationService:
         p1 = tf.add_paragraph()
         p1.text = "• Duplicates: Repeated rows can lead to statistical bias and should be cleaned."
         p1.font.name = "Arial"
-        p1.font.size = Pt(13)
+        p1.font.size = Pt(12.5)
         p1.font.color.rgb = RGBColor(71, 85, 105)
         p1.space_before = Pt(6)
         
         p2 = tf.add_paragraph()
         p2.text = "• Missing Values: High concentrations of null data require appropriate imputation or removal."
         p2.font.name = "Arial"
-        p2.font.size = Pt(13)
+        p2.font.size = Pt(12.5)
         p2.font.color.rgb = RGBColor(71, 85, 105)
         p2.space_before = Pt(4)
         
         p3 = tf.add_paragraph()
-        p3.text = "• Constant & Cardinality: Single-value columns contain no descriptive power; extremely high unique identifier columns should be modeled carefully."
+        p3.text = "• Constant & Cardinality: Single-value columns contain no descriptive power; extremely high unique columns should be modeled carefully."
         p3.font.name = "Arial"
-        p3.font.size = Pt(13)
+        p3.font.size = Pt(12.5)
         p3.font.color.rgb = RGBColor(71, 85, 105)
         p3.space_before = Pt(4)
+
+        # Visual Illustration Card on the right
+        self._add_illustration_card(slide, Inches(8.55), Inches(3.55), Inches(4.13), Inches(3.3), "icon_risks.png")
 
     def _add_analysis_slide(self, prs, analysis_result):
         if isinstance(analysis_result, dict):
@@ -914,11 +1047,24 @@ class PresentationService:
         accent_shape.fill.fore_color.rgb = RGBColor(30, 41, 59) # Slate 800
         accent_shape.line.fill.background()
         
-        # Text box
+        # Center the conclusion illustration inside the left dark panel
+        conclusion_icon_path = self._get_asset_path("icon_conclusion.png")
+        if conclusion_icon_path:
+            try:
+                slide.shapes.add_picture(
+                    conclusion_icon_path,
+                    Inches(0.5),
+                    Inches(2.0),
+                    width=Inches(3.5)
+                )
+            except Exception:
+                pass
+        
+        # Text box on the right
         text_box = slide.shapes.add_textbox(
-            Inches(1.5),
+            Inches(5.0),
             Inches(2.2),
-            Inches(10.3),
+            Inches(7.5),
             Inches(4.0),
         )
         frame = text_box.text_frame
