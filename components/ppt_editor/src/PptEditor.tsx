@@ -17,7 +17,13 @@ const PptEditor = ({ args }: ComponentProps) => {
 
   useEffect(() => {
     Streamlit.setFrameHeight(600);
-  }, []);
+  });
+
+  useEffect(() => {
+    if (presentation_state?.slides) {
+      setSlides(presentation_state.slides);
+    }
+  }, [presentation_state]);
 
   useEffect(() => {
     if (canvasRef.current && !canvas) {
@@ -161,6 +167,16 @@ const PptEditor = ({ args }: ComponentProps) => {
     setSelectedObj(null);
     saveCanvasToState(canvas, activeSlideIdx);
   };
+
+  if (!slides || slides.length === 0) {
+    return (
+      <div className="flex h-[600px] w-full bg-slate-50 rounded-lg border border-slate-200 items-center justify-center flex-col">
+        <ImageIcon className="w-16 h-16 text-slate-300 mb-4" />
+        <h3 className="text-lg font-medium text-slate-600">No slides to preview</h3>
+        <p className="text-slate-400">Generate presentation to preview slides</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-[600px] w-full bg-slate-100 rounded-lg overflow-hidden border border-slate-300">
