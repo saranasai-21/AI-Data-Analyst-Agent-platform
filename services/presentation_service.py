@@ -71,19 +71,7 @@ class PresentationService:
         slide = prs.slides.add_slide(prs.slide_layouts[6])
         background = slide.background.fill
         background.solid()
-        background.fore_color.rgb = RGBColor(248, 250, 252) # slate-50 background
-
-        # Add a subtle header background band
-        header_band = slide.shapes.add_shape(
-            MSO_SHAPE.RECTANGLE,
-            Inches(0),
-            Inches(0),
-            Inches(13.333),
-            Inches(1.1),
-        )
-        header_band.fill.solid()
-        header_band.fill.fore_color.rgb = RGBColor(241, 245, 249) # slate-100 header band
-        header_band.line.fill.background()
+        background.fore_color.rgb = RGBColor(15, 41, 74) # Deep Navy blue background
 
         # Add a colored left vertical accent line
         accent_bar = slide.shapes.add_shape(
@@ -94,7 +82,7 @@ class PresentationService:
             Inches(0.46),
         )
         accent_bar.fill.solid()
-        accent_bar.fill.fore_color.rgb = RGBColor(13, 148, 136) # Teal accent color
+        accent_bar.fill.fore_color.rgb = RGBColor(45, 212, 191) # Glowing Teal accent color
         accent_bar.line.fill.background()
 
         title_box = slide.shapes.add_textbox(
@@ -114,7 +102,7 @@ class PresentationService:
         p.font.name = "Times New Roman"
         p.font.size = Pt(28 if len(clean_title) <= 42 else 22)
         p.font.bold = True
-        p.font.color.rgb = RGBColor(30, 41, 59) # Slate 800 title text
+        p.font.color.rgb = RGBColor(255, 255, 255) # White title text
         return slide
 
     def _get_emoji_for_text(self, text):
@@ -154,27 +142,236 @@ class PresentationService:
         return "•"
 
     def create_report_from_state(self, presentation_state, output_path="outputs/Editable_AI_Report.pptx"):
+        import base64
+        import tempfile
+        import requests
+        
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         prs = Presentation()
+        prs.slide_width = Inches(13.333)
+        prs.slide_height = Inches(7.5)
         
+        temp_files = []
+        
+        def resolve_chart_path(chart_key):
+            if not chart_key:
+                return None
+            safe_key = "".join(
+                ch if ch.isalnum() or ch in ("-", "_") else "_"
+                for ch in str(chart_key)
+            ).strip("_") or "chart"
+            path = f"outputs/charts/{safe_key}.png"
+            if os.path.exists(path):
+                return path
+            return None
+
         for slide_data in presentation_state.get("slides", []):
-            title = slide_data.get("title", "Slide")
+            slide = prs.slides.add_slide(prs.slide_layouts[6])
             
-            text_lines = []
-            for elem in slide_data.get("elements", []):
-                if elem.get("type") in ["textbox", "text"]:
-                    text_lines.append(elem.get("text", ""))
+            # Slide background: if title_slide or contains dark theme elements, use dark bg.
+            is_dark = slide_data.get("layout") in ["title_slide", "conclusion_slide"]
+            background = slide.background.fill
+            background.solid()
+            background.fore_color.rgb = RGBColor(15, 41, 74) # Corporate deep blue background
+            is_dark = True
                 
-            combined_text = "\n".join(text_lines)
+            elements = slide_data.get("elements", [])
             
-            if slide_data.get("layout") == "title_slide":
-                # Hack to pass title as file_name to title slide generator
-                self._add_title_slide(prs, title)
-            else:
-                self._add_text_slides(prs, title, combined_text)
+            for elem in elements:
+                try:
+                    x = float(elem.get("x", elem.get("left", 100)))
+                    y = float(elem.get("y", elem.get("top", 100)))
+                    w = float(elem.get("w", elem.get("width", 500)))
+                    h = float(elem.get("h", elem.get("height", 150)))
+                except (ValueError, TypeError):
+                    x, y, w, h = 100.0, 100.0, 500.0, 150.0
+                    
+                left_in = Inches(x * 0.008333)
+                top_in = Inches(y * 0.008333)
+                width_in = Inches(w * 0.008333)
+                height_in = Inches(h * 0.008333)
                 
+                elem_type = elem.get("type", "text")
+                
+                if elem_type in ["title", "text", "textbox"]:
+                    textbox = slide.shapes.add_textbox(left_in, top_in, width_in, height_in)
+                    tf = textbox.text_frame
+                    tf.word_wrap = True
+                    tf.clear()
+                    
+                    p = tf.paragraphs[0]
+                    p.text = elem.get("text", elem.get("content", ""))
+                    p.font.name = "Times New Roman"
+                    
+                    if elem_type == "title":
+                        p.font.bold = True
+                        
+                    fs_px = float(elem.get("fontSize", 36 if elem_type == "title" else 24))
+                    p.font.size = Pt(fs_px * 0.6)
+                    
+                    color_hex = elem.get("fill", "#ffffff")
+                    if color_hex.strip().lower() in ["#1e293b", "#334155", "#475569", "#333333", "#000000", "#111827"]:
+                        color_hex = "#ffffff"
+                    if color_hex.startswith("#"):
+                        try:
+                            hex_val = color_hex.lstrip('#')
+                            r = int(hex_val[0:2], 16)
+                            g = int(hex_val[2:4], 16)
+                            b = int(hex_val[4:6], 16)
+                            p.font.color.rgb = RGBColor(r, g, b)
+                        except Exception:
+                            pass
+                            
+                elif elem_type == "bullets":
+                    textbox = slide.shapes.add_textbox(left_in, top_in, width_in, height_in)
+                    tf = textbox.text_frame
+                    tf.word_wrap = True
+                    tf.clear()
+                    
+                    items = elem.get("items", [])
+                    if not items:
+                        text_content = elem.get("text", elem.get("content", ""))
+                        items = [line.replace("•", "").strip() for line in text_content.split("\n") if line.strip()]
+                        
+                    for idx, item_text in enumerate(items):
+                        p = tf.paragraphs[0] if idx == 0 else tf.add_paragraph()
+                        p.text = f"•  {item_text}"
+                        p.font.name = "Times New Roman"
+                        
+                        fs_px = float(elem.get("fontSize", 24))
+                        p.font.size = Pt(fs_px * 0.6)
+                        
+                        color_hex = elem.get("fill", "#cbd5e1")
+                        if color_hex.strip().lower() in ["#1e293b", "#334155", "#475569", "#333333", "#000000", "#111827"]:
+                            color_hex = "#cbd5e1"
+                        if color_hex.startswith("#"):
+                            try:
+                                hex_val = color_hex.lstrip('#')
+                                r = int(hex_val[0:2], 16)
+                                g = int(hex_val[2:4], 16)
+                                b = int(hex_val[4:6], 16)
+                                p.font.color.rgb = RGBColor(r, g, b)
+                            except Exception:
+                                pass
+                                
+                elif elem_type == "image":
+                    src = elem.get("src", "")
+                    chart_key = elem.get("chart_key", "")
+                    
+                    img_path = None
+                    if chart_key:
+                        img_path = resolve_chart_path(chart_key)
+                    if not img_path and (src.startswith("outputs/") or os.path.exists(src)):
+                        img_path = src
+                        
+                    if not img_path and src.startswith("data:image"):
+                        try:
+                            header, encoded = src.split(",", 1)
+                            img_data = base64.b64decode(encoded)
+                            os.makedirs("outputs/temp", exist_ok=True)
+                            with tempfile.NamedTemporaryFile(delete=False, suffix=".png", dir="outputs/temp") as tmp:
+                                tmp.write(img_data)
+                                img_path = tmp.name
+                                temp_files.append(img_path)
+                        except Exception as e:
+                            print(f"Error decoding base64 image: {e}")
+                            
+                    if not img_path and (src.startswith("http://") or src.startswith("https://")):
+                        try:
+                            response = requests.get(src, timeout=10)
+                            if response.status_code == 200:
+                                os.makedirs("outputs/temp", exist_ok=True)
+                                with tempfile.NamedTemporaryFile(delete=False, suffix=".png", dir="outputs/temp") as tmp:
+                                    tmp.write(response.content)
+                                    img_path = tmp.name
+                                    temp_files.append(img_path)
+                        except Exception as e:
+                            print(f"Error downloading image: {e}")
+                            
+                    if img_path and os.path.exists(img_path):
+                        try:
+                            slide.shapes.add_picture(img_path, left_in, top_in, width=width_in, height=height_in)
+                        except Exception as e:
+                            print(f"Error drawing picture on slide: {e}")
+                            
+                elif elem_type == "chart":
+                    chart_data = elem.get("chart_data", {})
+                    card = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left_in, top_in, width_in, height_in)
+                    card.fill.solid()
+                    card.fill.fore_color.rgb = RGBColor(19, 37, 71) # Dark card fill
+                    card.line.color.rgb = RGBColor(43, 62, 102) # Subtle border
+                    card.line.width = Pt(1.5)
+                    
+                    tb = slide.shapes.add_textbox(left_in + Inches(0.2), top_in + Inches(0.2), width_in - Inches(0.4), height_in - Inches(0.4))
+                    tf = tb.text_frame
+                    tf.word_wrap = True
+                    tf.clear()
+                    p = tf.paragraphs[0]
+                    p.text = f"📊 Chart: {chart_data.get('title', 'Data Visualization')}"
+                    p.font.name = "Times New Roman"
+                    p.font.size = Pt(18)
+                    p.font.bold = True
+                    p.font.color.rgb = RGBColor(255, 255, 255)
+                elif elem_type == "shape":
+                    card = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left_in, top_in, width_in, height_in)
+                    card.fill.solid()
+                    color_hex = elem.get("fill", "#8b5cf6")
+                    if color_hex.startswith("#"):
+                        try:
+                            hex_val = color_hex.lstrip('#')
+                            r = int(hex_val[0:2], 16)
+                            g = int(hex_val[2:4], 16)
+                            b = int(hex_val[4:6], 16)
+                            card.fill.fore_color.rgb = RGBColor(r, g, b)
+                        except Exception:
+                            card.fill.fore_color.rgb = RGBColor(139, 92, 246)
+                    card.line.fill.background()
+                    
+                elif elem_type == "table":
+                    table_data = elem.get("table_data", {})
+                    headers = table_data.get("headers", ["Metric", "Benchmark", "Current"])
+                    rows = table_data.get("rows", [["Data completeness", "90.0%", "98.4%"]])
+                    
+                    num_rows = len(rows) + 1
+                    num_cols = len(headers)
+                    
+                    shape = slide.shapes.add_table(num_rows, num_cols, left_in, top_in, width_in, height_in)
+                    table = shape.table
+                    
+                    for c_idx, header in enumerate(headers):
+                        cell = table.cell(0, c_idx)
+                        cell.text = str(header)
+                        cell.fill.solid()
+                        cell.fill.fore_color.rgb = RGBColor(30, 41, 59)
+                        p = cell.text_frame.paragraphs[0]
+                        p.font.name = "Times New Roman"
+                        p.font.size = Pt(14)
+                        p.font.bold = True
+                        p.font.color.rgb = RGBColor(255, 255, 255)
+                        
+                    for r_idx, row_data in enumerate(rows):
+                        for c_idx, cell_val in enumerate(row_data):
+                            cell = table.cell(r_idx + 1, c_idx)
+                            cell.text = str(cell_val)
+                            cell.fill.solid()
+                            if r_idx % 2 == 0:
+                                cell.fill.fore_color.rgb = RGBColor(19, 37, 71)
+                            else:
+                                cell.fill.fore_color.rgb = RGBColor(30, 41, 59)
+                            p = cell.text_frame.paragraphs[0]
+                            p.font.name = "Times New Roman"
+                            p.font.size = Pt(12)
+                            p.font.color.rgb = RGBColor(255, 255, 255)
+                            
         self._remove_empty_slides(prs)
         prs.save(output_path)
+        
+        for temp_file in temp_files:
+            try:
+                if os.path.exists(temp_file):
+                    os.remove(temp_file)
+            except Exception:
+                pass
         return output_path
 
     def _add_kpi_card(self, slide, left, top, width, height, title, value, emoji=""):
@@ -183,8 +380,8 @@ class PresentationService:
             left, top, width, height
         )
         card.fill.solid()
-        card.fill.fore_color.rgb = RGBColor(255, 255, 255)
-        card.line.color.rgb = RGBColor(226, 232, 240)
+        card.fill.fore_color.rgb = RGBColor(19, 37, 71) # Dark card fill
+        card.line.color.rgb = RGBColor(43, 62, 102) # Subtle border
         card.line.width = Pt(1.5)
         
         value_box = slide.shapes.add_textbox(
@@ -201,7 +398,7 @@ class PresentationService:
         p_val.font.name = "Times New Roman"
         p_val.font.size = Pt(34)
         p_val.font.bold = True
-        p_val.font.color.rgb = RGBColor(13, 148, 136) # Teal value accent
+        p_val.font.color.rgb = RGBColor(45, 212, 191) # Glowing Teal value accent
         
         title_box = slide.shapes.add_textbox(
             left + Inches(0.15),
@@ -217,8 +414,8 @@ class PresentationService:
         p_title.font.name = "Times New Roman"
         p_title.font.size = Pt(15)
         p_title.font.bold = True
-        p_title.font.color.rgb = RGBColor(71, 85, 105) # Slate-600
-
+        p_title.font.color.rgb = RGBColor(203, 213, 225) # Slate 300 title
+ 
     def _get_asset_path(self, filename):
         current_dir = os.path.dirname(os.path.abspath(__file__))
         workspace_dir = os.path.dirname(current_dir)
@@ -229,15 +426,15 @@ class PresentationService:
         if os.path.exists(fallback):
             return fallback
         return None
-
+ 
     def _add_illustration_card(self, slide, left, top, width, height, asset_name):
         card = slide.shapes.add_shape(
             MSO_SHAPE.ROUNDED_RECTANGLE,
             left, top, width, height
         )
         card.fill.solid()
-        card.fill.fore_color.rgb = RGBColor(255, 255, 255)
-        card.line.color.rgb = RGBColor(226, 232, 240)
+        card.fill.fore_color.rgb = RGBColor(19, 37, 71) # Dark card fill
+        card.line.color.rgb = RGBColor(43, 62, 102) # Subtle border
         card.line.width = Pt(1.5)
         
         path = self._get_asset_path(asset_name)
@@ -532,12 +729,12 @@ class PresentationService:
 
             p_obj.font.name = "Times New Roman"
             p_obj.font.size = Pt(fitted_font_size)
-            p_obj.font.color.rgb = RGBColor(51, 65, 85) # Slate 700 text color
+            p_obj.font.color.rgb = RGBColor(226, 232, 240) # Slate 200 text color
             self._set_para_space_after(p_elem, pt_value=space_after)
 
             if not is_bullet and not clean_line.startswith("  ") and len(clean_line) < 58:
                 p_obj.font.bold = True
-                p_obj.font.color.rgb = RGBColor(15, 23, 42) # Slate 900 bold headings
+                p_obj.font.color.rgb = RGBColor(255, 255, 255) # White bold headings
 
     def _add_body_lines(self, slide, lines, top=1.22, font_size=17, max_lines=14):
         # Truncate lines to prevent overflow
@@ -569,8 +766,8 @@ class PresentationService:
                 Inches(intro_height)
             )
             card_intro.fill.solid()
-            card_intro.fill.fore_color.rgb = RGBColor(255, 255, 255)
-            card_intro.line.color.rgb = RGBColor(226, 232, 240)
+            card_intro.fill.fore_color.rgb = RGBColor(19, 37, 71) # Dark card fill
+            card_intro.line.color.rgb = RGBColor(43, 62, 102) # Subtle border
             card_intro.line.width = Pt(1.5)
 
             # Text inside intro
@@ -587,7 +784,7 @@ class PresentationService:
             p_intro.text = intro_line
             p_intro.font.name = "Times New Roman"
             p_intro.font.size = Pt(15.5)
-            p_intro.font.color.rgb = RGBColor(71, 85, 105) # Slate 600
+            p_intro.font.color.rgb = RGBColor(203, 213, 225) # Slate 300
             p_intro.font.italic = True
             
             # Update top for columns
@@ -628,8 +825,8 @@ class PresentationService:
                 Inches(avail_height)
             )
             card.fill.solid()
-            card.fill.fore_color.rgb = RGBColor(255, 255, 255) # White card
-            card.line.color.rgb = RGBColor(226, 232, 240)
+            card.fill.fore_color.rgb = RGBColor(19, 37, 71) # Dark card fill
+            card.line.color.rgb = RGBColor(43, 62, 102) # Subtle border
             card.line.width = Pt(1.5)
             
             self._add_textbox_column(
@@ -707,8 +904,8 @@ class PresentationService:
                 Inches(avail_height)
             )
             card1.fill.solid()
-            card1.fill.fore_color.rgb = RGBColor(255, 255, 255)
-            card1.line.color.rgb = RGBColor(226, 232, 240)
+            card1.fill.fore_color.rgb = RGBColor(19, 37, 71) # Dark card fill
+            card1.line.color.rgb = RGBColor(43, 62, 102) # Subtle border
             card1.line.width = Pt(1.5)
             
             # Col 2 Card background
@@ -721,8 +918,8 @@ class PresentationService:
                     Inches(avail_height)
                 )
                 card2.fill.solid()
-                card2.fill.fore_color.rgb = RGBColor(255, 255, 255)
-                card2.line.color.rgb = RGBColor(226, 232, 240)
+                card2.fill.fore_color.rgb = RGBColor(19, 37, 71) # Dark card fill
+                card2.line.color.rgb = RGBColor(43, 62, 102) # Subtle border
                 card2.line.width = Pt(1.5)
 
             self._add_textbox_column(
@@ -936,7 +1133,7 @@ class PresentationService:
         # Dark solid background
         background = slide.background.fill
         background.solid()
-        background.fore_color.rgb = RGBColor(15, 23, 42) # Slate 900
+        background.fore_color.rgb = RGBColor(15, 41, 74) # Deep Navy blue background
         
         # Add the gorgeous cover art image at the right side of the slide
         cover_art_path = self._generate_dynamic_art(file_name, is_conclusion=False)
@@ -961,7 +1158,7 @@ class PresentationService:
                 Inches(8.5), Inches(0), Inches(4.833), Inches(7.5)
             )
             accent_shape.fill.solid()
-            accent_shape.fill.fore_color.rgb = RGBColor(30, 41, 59) # Slate 800
+            accent_shape.fill.fore_color.rgb = RGBColor(19, 37, 71) # Dark card fill
             accent_shape.line.fill.background()
             accent_shape.rotation = 180
         
@@ -1039,8 +1236,8 @@ class PresentationService:
             Inches(0.65), Inches(3.55), Inches(7.5), Inches(3.3)
         )
         col_card.fill.solid()
-        col_card.fill.fore_color.rgb = RGBColor(255, 255, 255)
-        col_card.line.color.rgb = RGBColor(226, 232, 240)
+        col_card.fill.fore_color.rgb = RGBColor(19, 37, 71) # Dark card fill
+        col_card.line.color.rgb = RGBColor(43, 62, 102) # Subtle border
         col_card.line.width = Pt(1.5)
         
         preview_box = slide.shapes.add_textbox(
@@ -1055,13 +1252,13 @@ class PresentationService:
         p0.font.name = "Times New Roman"
         p0.font.size = Pt(20)
         p0.font.bold = True
-        p0.font.color.rgb = RGBColor(30, 41, 59)
+        p0.font.color.rgb = RGBColor(255, 255, 255)
         
         p1 = tf.add_paragraph()
         p1.text = "Primary fields detected:"
         p1.font.name = "Times New Roman"
         p1.font.size = Pt(14)
-        p1.font.color.rgb = RGBColor(100, 116, 139)
+        p1.font.color.rgb = RGBColor(226, 232, 240)
         p1.space_before = Pt(6)
         
         p2 = tf.add_paragraph()
@@ -1071,7 +1268,7 @@ class PresentationService:
         p2.text = cols_text
         p2.font.name = "Times New Roman"
         p2.font.size = Pt(13)
-        p2.font.color.rgb = RGBColor(71, 85, 105)
+        p2.font.color.rgb = RGBColor(203, 213, 225)
         p2.line_spacing = 1.3
         p2.space_before = Pt(8)
 
@@ -1111,8 +1308,8 @@ class PresentationService:
             Inches(0.65), Inches(3.55), Inches(7.5), Inches(3.3)
         )
         summary_card.fill.solid()
-        summary_card.fill.fore_color.rgb = RGBColor(255, 255, 255)
-        summary_card.line.color.rgb = RGBColor(226, 232, 240)
+        summary_card.fill.fore_color.rgb = RGBColor(19, 37, 71) # Dark card fill
+        summary_card.line.color.rgb = RGBColor(43, 62, 102) # Subtle border
         summary_card.line.width = Pt(1.5)
         
         summary_box = slide.shapes.add_textbox(
@@ -1127,27 +1324,27 @@ class PresentationService:
         p0.font.name = "Times New Roman"
         p0.font.size = Pt(20)
         p0.font.bold = True
-        p0.font.color.rgb = RGBColor(30, 41, 59)
+        p0.font.color.rgb = RGBColor(255, 255, 255)
         
         p1 = tf.add_paragraph()
         p1.text = "• Duplicates: Repeated rows can lead to statistical bias and should be cleaned."
         p1.font.name = "Times New Roman"
         p1.font.size = Pt(13.5)
-        p1.font.color.rgb = RGBColor(71, 85, 105)
+        p1.font.color.rgb = RGBColor(203, 213, 225)
         p1.space_before = Pt(6)
         
         p2 = tf.add_paragraph()
         p2.text = "• Missing Values: High concentrations of null data require appropriate imputation or removal."
         p2.font.name = "Times New Roman"
         p2.font.size = Pt(13.5)
-        p2.font.color.rgb = RGBColor(71, 85, 105)
+        p2.font.color.rgb = RGBColor(203, 213, 225)
         p2.space_before = Pt(4)
         
         p3 = tf.add_paragraph()
         p3.text = "• Constant & Cardinality: Single-value columns contain no descriptive power; extremely high unique columns should be modeled carefully."
         p3.font.name = "Times New Roman"
         p3.font.size = Pt(13.5)
-        p3.font.color.rgb = RGBColor(71, 85, 105)
+        p3.font.color.rgb = RGBColor(203, 213, 225)
         p3.space_before = Pt(4)
 
         # Visual Illustration Card on the right
@@ -1213,8 +1410,8 @@ class PresentationService:
                 Inches(5.45)
             )
             card.fill.solid()
-            card.fill.fore_color.rgb = RGBColor(255, 255, 255)
-            card.line.color.rgb = RGBColor(226, 232, 240)
+            card.fill.fore_color.rgb = RGBColor(19, 37, 71) # Dark card fill
+            card.line.color.rgb = RGBColor(43, 62, 102) # Subtle border
             card.line.width = Pt(1.5)
 
             try:
@@ -1244,7 +1441,7 @@ class PresentationService:
             p.text = display_caption
             p.font.name = "Times New Roman"
             p.font.size = Pt(14.5)
-            p.font.color.rgb = RGBColor(71, 85, 105)
+            p.font.color.rgb = RGBColor(226, 232, 240) # Slate 200 caption text
             p.alignment = PP_ALIGN.CENTER
 
     def _add_text_slides(self, prs, title, text):
@@ -1335,7 +1532,7 @@ class PresentationService:
         slide = prs.slides.add_slide(prs.slide_layouts[6])
         background = slide.background.fill
         background.solid()
-        background.fore_color.rgb = RGBColor(15, 23, 42) # Slate 900
+        background.fore_color.rgb = RGBColor(15, 41, 74) # Deep Navy blue background
         
         # Decorative shape
         accent_shape = slide.shapes.add_shape(
@@ -1343,7 +1540,7 @@ class PresentationService:
             Inches(0), Inches(0), Inches(4.5), Inches(7.5)
         )
         accent_shape.fill.solid()
-        accent_shape.fill.fore_color.rgb = RGBColor(30, 41, 59) # Slate 800
+        accent_shape.fill.fore_color.rgb = RGBColor(19, 37, 71) # Dark card fill
         accent_shape.line.fill.background()
         
         # Center the conclusion illustration inside the left dark panel

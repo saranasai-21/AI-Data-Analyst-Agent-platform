@@ -1,10 +1,26 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Streamlit, withStreamlitConnection, ComponentProps } from 'streamlit-component-lib';
 import { fabric } from 'fabric';
-import { Lock, Unlock, Type, Image as ImageIcon, Trash2, Layout, Settings } from 'lucide-react';
+import {
+  Lock, Unlock, Type, Image as ImageIcon, Trash2, Layout, Settings,
+  List, Table as TableIcon, BarChart3, ZoomIn, ZoomOut, Maximize2,
+  HelpCircle, ChevronLeft, ChevronRight, Download, Save, Undo2, Redo2, Square, Share2, Layers
+} from 'lucide-react';
 
 const SLIDE_WIDTH = 1600;
 const SLIDE_HEIGHT = 900;
+
+// Set global fabric selection handle styles for a Figma-like feel
+fabric.Object.prototype.set({
+  cornerColor: '#ffffff',
+  cornerStrokeColor: '#8b5cf6', // Purple 500
+  cornerSize: 12,
+  cornerStyle: 'circle',
+  transparentCorners: false,
+  borderColor: '#8b5cf6',
+  borderScaleFactor: 2,
+  padding: 8,
+});
 
 const PptEditor = ({ args }: ComponentProps) => {
   const { presentation_state } = args || {};
@@ -17,9 +33,18 @@ const PptEditor = ({ args }: ComponentProps) => {
   const [selectedObj, setSelectedObj] = useState<fabric.Object | null>(null);
   const [scale, setScale] = useState(0.4);
 
+  // Collapsible sidebars state
+  const [isLeftBarOpen, setIsLeftBarOpen] = useState(true);
+  const [isRightBarOpen, setIsRightBarOpen] = useState(true);
+
+  // Undo/Redo element history stacks
+  const [undoStack, setUndoStack] = useState<any[]>([]);
+  const [redoStack, setRedoStack] = useState<any[]>([]);
+
   const lastSentStateRef = useRef<string>('');
   const activeSlideIdxRef = useRef(activeSlideIdx);
   const slidesRef = useRef(slides);
+  const currentLoadSlideIdxRef = useRef<number>(-1);
 
   useEffect(() => {
     activeSlideIdxRef.current = activeSlideIdx;
@@ -29,31 +54,35 @@ const PptEditor = ({ args }: ComponentProps) => {
     slidesRef.current = slides;
   }, [slides]);
 
-  // Set Streamlit component frame height
   useEffect(() => {
-    Streamlit.setFrameHeight(850);
-  });
+    Streamlit.setFrameHeight(880);
+  }, []);
 
-  // Calculate viewport scale fitting for the 1600x900 canvas
+  // Calculate default viewport scale
   const handleResize = () => {
     if (!containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
-    const containerW = rect.width - 48; // spacing padding
-    const containerH = rect.height - 48;
-    
+    const padding = 64;
+    const containerW = rect.width - padding;
+    const containerH = rect.height - padding;
+
     const scaleX = containerW / SLIDE_WIDTH;
     const scaleY = containerH / SLIDE_HEIGHT;
-    const newScale = Math.min(scaleX, scaleY, 0.95); // max 95% scale to prevent edge overflows
-    setScale(newScale);
+    const newScale = Math.min(scaleX, scaleY, 0.95);
+    setScale(Math.max(0.1, Number(newScale.toFixed(2))));
   };
 
   useEffect(() => {
     window.addEventListener('resize', handleResize);
-    setTimeout(handleResize, 100);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [slides, activeSlideIdx]);
+    handleResize();
+    const timer = setTimeout(handleResize, 100);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      clearTimeout(timer);
+    };
+  }, [slides, activeSlideIdx, isLeftBarOpen, isRightBarOpen, selectedObj]);
 
-  // Sync state from Streamlit if it changes externally
+  // Sync state externally from Streamlit
   useEffect(() => {
     if (presentation_state?.slides) {
       const stateStr = JSON.stringify(presentation_state.slides);
@@ -66,83 +95,78 @@ const PptEditor = ({ args }: ComponentProps) => {
     }
   }, [presentation_state, canvas, activeSlideIdx]);
 
-  // Helper to render mock chart visually
+  // Render mock charts visually on canvas
   const renderMockChart = (x: number, y: number, w: number, h: number, chartData: any) => {
     const objects: fabric.Object[] = [];
-    
-    // Background card
     const bg = new fabric.Rect({
       left: x,
       top: y,
       width: w,
       height: h,
-      fill: '#f8fafc',
-      stroke: '#cbd5e1',
+      fill: '#1e293b',
+      stroke: '#334155',
       strokeWidth: 2,
       rx: 12,
       ry: 12
     });
     objects.push(bg);
-    
-    // Chart Title
+
     const title = new fabric.Text(chartData?.title || 'Data Trend Analysis', {
-      left: x + 30,
-      top: y + 25,
-      fontSize: 24,
+      left: x + 40,
+      top: y + 35,
+      fontSize: 26,
       fontFamily: 'Arial',
       fontWeight: 'bold',
-      fill: '#1e293b'
+      fill: '#f1f5f9'
     });
     objects.push(title);
-    
-    // Axes
-    const xAxis = new fabric.Line([x + 60, y + h - 80, x + w - 40, y + h - 80], {
-      stroke: '#94a3b8',
+
+    const xAxis = new fabric.Line([x + 80, y + h - 100, x + w - 50, y + h - 100], {
+      stroke: '#475569',
       strokeWidth: 3
     });
-    const yAxis = new fabric.Line([x + 60, y + 80, x + 60, y + h - 80], {
-      stroke: '#94a3b8',
+    const yAxis = new fabric.Line([x + 80, y + 100, x + 80, y + h - 100], {
+      stroke: '#475569',
       strokeWidth: 3
     });
     objects.push(xAxis, yAxis);
-    
-    // Draw 4 beautiful vertical columns
-    const barColors = ['#0f766e', '#4f46e5', '#d97706', '#059669'];
+
+    const barColors = ['#06b6d4', '#8b5cf6', '#f59e0b', '#10b981'];
     const barLabels = ['Q1', 'Q2', 'Q3', 'Q4'];
-    const barValues = [0.45, 0.75, 0.60, 0.90]; // proportions
-    
-    const chartHeight = h - 180;
-    const chartWidth = w - 140;
-    const barWidth = Math.min(60, (chartWidth / 4) * 0.5);
+    const barValues = [0.45, 0.75, 0.60, 0.90];
+
+    const chartHeight = h - 220;
+    const chartWidth = w - 180;
+    const barWidth = Math.min(80, (chartWidth / 4) * 0.5);
     const spacing = (chartWidth - barWidth * 4) / 5;
-    
+
     for (let i = 0; i < 4; i++) {
       const barHeight = chartHeight * barValues[i];
-      const barLeft = x + 70 + spacing + i * (barWidth + spacing);
-      const barTop = y + h - 80 - barHeight;
-      
+      const barLeft = x + 100 + spacing + i * (barWidth + spacing);
+      const barTop = y + h - 100 - barHeight;
+
       const bar = new fabric.Rect({
         left: barLeft,
         top: barTop,
         width: barWidth,
         height: barHeight,
         fill: barColors[i],
-        rx: 6,
-        ry: 6
+        rx: 8,
+        ry: 8
       });
-      
+
       const label = new fabric.Text(barLabels[i], {
         left: barLeft + barWidth / 2,
-        top: y + h - 60,
-        fontSize: 16,
+        top: y + h - 75,
+        fontSize: 18,
         fontFamily: 'Arial',
-        fill: '#64748b',
+        fill: '#94a3b8',
         originX: 'center'
       });
-      
+
       objects.push(bar, label);
     }
-    
+
     const group = new fabric.Group(objects, {
       left: x,
       top: y,
@@ -154,56 +178,55 @@ const PptEditor = ({ args }: ComponentProps) => {
     return group;
   };
 
-  // Helper to render mock table visually
+  // Render mock tables visually on canvas
   const renderMockTable = (x: number, y: number, w: number, h: number, tableData: any) => {
     const objects: fabric.Object[] = [];
-    
     const rows = 4;
     const cols = 3;
     const cellW = w / cols;
     const cellH = h / rows;
-    
+
     const defaultHeaders = ['Metric', 'Benchmark', 'Current Performance'];
     const defaultRows = [
       ['Data Completeness', '90.0%', '98.4%'],
       ['Processing Latency', '< 500ms', '342ms'],
       ['Query Accuracy', '99.5%', '99.9%']
     ];
-    
+
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
         const cellLeft = x + c * cellW;
         const cellTop = y + r * cellH;
-        
+
         const cellBg = new fabric.Rect({
           left: cellLeft,
           top: cellTop,
           width: cellW,
           height: cellH,
-          fill: r === 0 ? '#1e293b' : (r % 2 === 1 ? '#ffffff' : '#f8fafc'),
-          stroke: '#cbd5e1',
+          fill: r === 0 ? '#1e293b' : (r % 2 === 1 ? '#0f172a' : '#1e293b'),
+          stroke: '#334155',
           strokeWidth: 1.5
         });
-        
-        const cellTextStr = r === 0 
+
+        const cellTextStr = r === 0
           ? (tableData?.headers?.[c] || defaultHeaders[c])
           : (tableData?.rows?.[r - 1]?.[c] || defaultRows[r - 1]?.[c] || '-');
-          
+
         const cellText = new fabric.Text(cellTextStr, {
           left: cellLeft + cellW / 2,
           top: cellTop + cellH / 2,
-          fontSize: r === 0 ? 18 : 16,
+          fontSize: r === 0 ? 20 : 18,
           fontFamily: 'Arial',
           fontWeight: r === 0 ? 'bold' : 'normal',
-          fill: r === 0 ? '#ffffff' : '#334155',
+          fill: '#f1f5f9',
           originX: 'center',
           originY: 'center'
         });
-        
+
         objects.push(cellBg, cellText);
       }
     }
-    
+
     const group = new fabric.Group(objects, {
       left: x,
       top: y,
@@ -219,18 +242,28 @@ const PptEditor = ({ args }: ComponentProps) => {
     if (!canvas) return;
     const slide = currentSlides[idx];
     if (!slide) return;
+
+    const mapFillColor = (fill: string | undefined, defaultColor: string) => {
+      if (!fill) return defaultColor;
+      const darkColors = ['#1e293b', '#0f172a', '#334155', '#475569', '#0f294a', '#0d0d0e', '#09090b', '#000000', 'black', 'rgba(15,23,42,1)', 'rgba(30,41,59,1)'];
+      if (darkColors.includes(fill.toLowerCase())) {
+        return '#ffffff';
+      }
+      return fill;
+    };
+
+    currentLoadSlideIdxRef.current = idx;
     canvas.clear();
-    canvas.setBackgroundColor('#ffffff', () => {});
-    
+    canvas.setBackgroundColor('#0f294a', () => { });
+
     const elements = slide.elements || [];
-    
+
     elements.forEach((elem: any) => {
-      // Resolve dual coordinates: support both (x, y, w, h) and (left, top, width, height)
       const x = elem.x !== undefined ? elem.x : (elem.left !== undefined ? elem.left : 100);
       const y = elem.y !== undefined ? elem.y : (elem.top !== undefined ? elem.top : 100);
       const w = elem.w !== undefined ? elem.w : (elem.width !== undefined ? elem.width : 500);
       const h = elem.h !== undefined ? elem.h : (elem.height !== undefined ? elem.height : 150);
-      
+
       let fObj: fabric.Object | null = null;
       const isReadonly = slide.layout === 'visual_analysis';
 
@@ -241,7 +274,7 @@ const PptEditor = ({ args }: ComponentProps) => {
           width: w,
           fontSize: elem.fontSize || 54,
           fontFamily: 'Arial',
-          fill: elem.fill || '#1e293b',
+          fill: mapFillColor(elem.fill, '#ffffff'),
           fontWeight: 'bold',
           editable: !isLocked && !isReadonly,
           selectable: !isLocked,
@@ -254,13 +287,13 @@ const PptEditor = ({ args }: ComponentProps) => {
           width: w,
           fontSize: elem.fontSize || 28,
           fontFamily: 'Arial',
-          fill: elem.fill || '#334155',
+          fill: mapFillColor(elem.fill, '#cbd5e1'),
           editable: !isLocked && !isReadonly,
           selectable: !isLocked,
           evented: !isLocked,
         });
       } else if (elem.type === 'bullets') {
-        const bulletText = Array.isArray(elem.items) 
+        const bulletText = Array.isArray(elem.items)
           ? elem.items.map((item: string) => `•  ${item}`).join('\n')
           : (elem.content || elem.text || '').split('\n').map((line: string) => line.trim().startsWith('•') ? line : `•  ${line}`).join('\n');
 
@@ -270,7 +303,7 @@ const PptEditor = ({ args }: ComponentProps) => {
           width: w,
           fontSize: elem.fontSize || 24,
           fontFamily: 'Arial',
-          fill: elem.fill || '#475569',
+          fill: mapFillColor(elem.fill, '#cbd5e1'),
           lineHeight: 1.3,
           editable: !isLocked && !isReadonly,
           selectable: !isLocked,
@@ -279,21 +312,26 @@ const PptEditor = ({ args }: ComponentProps) => {
       } else if (elem.type === 'image') {
         const imgUrl = elem.src || 'https://images.unsplash.com/photo-1542744094-3a31f103e35f?w=800';
         fabric.Image.fromURL(imgUrl, (img) => {
+          if (currentLoadSlideIdxRef.current !== idx) return;
           img.set({
             left: x,
             top: y,
-            width: w,
-            height: h,
             selectable: !isLocked,
             evented: !isLocked,
           });
-          img.scaleToWidth(w);
-          if (img.getScaledHeight() > h) {
-            img.scaleToHeight(h);
-          }
+
+          const scaleX = w / img.width!;
+          const scaleY = h / img.height!;
+          const scaleFactor = Math.min(scaleX, scaleY);
+
+          img.set({
+            scaleX: scaleFactor,
+            scaleY: scaleFactor
+          });
           img.setCoords();
           (img as any).elementType = 'image';
           (img as any).src = imgUrl;
+          (img as any).chartKey = elem.chart_key || elem.chartKey || '';
           canvas.add(img);
           canvas.renderAll();
         }, { crossOrigin: 'anonymous' });
@@ -308,43 +346,52 @@ const PptEditor = ({ args }: ComponentProps) => {
         canvas.add(group);
         canvas.renderAll();
         return;
+      } else if (elem.type === 'shape') {
+        fObj = new fabric.Rect({
+          left: x,
+          top: y,
+          width: w,
+          height: h,
+          fill: elem.fill || '#e2e8f0',
+          stroke: '#cbd5e1',
+          strokeWidth: 2,
+          rx: 8,
+          ry: 8,
+          selectable: !isLocked,
+          evented: !isLocked
+        });
       } else {
-        // Fallback textbox for structural compatibility
         fObj = new fabric.Textbox(elem.text || elem.content || '', {
           left: x,
           top: y,
           width: w,
           fontSize: elem.fontSize || 24,
           fontFamily: 'Arial',
-          fill: elem.fill || '#333333',
+          fill: elem.fill || '#ffffff',
           editable: !isLocked && !isReadonly,
           selectable: !isLocked,
           evented: !isLocked,
         });
       }
-      
+
       if (fObj) {
         (fObj as any).elementType = elem.type || 'text';
         fObj.setControlsVisibility({ mtr: !isLocked });
         canvas.add(fObj);
       }
     });
-    
     canvas.renderAll();
   };
 
-  const saveCanvasToState = (c: fabric.Canvas, idx: number) => {
-    if (idx < 0 || idx >= slidesRef.current.length) return;
-    const updatedSlides = JSON.parse(JSON.stringify(slidesRef.current));
+  const serializeCanvasElements = (c: fabric.Canvas) => {
     const objects = c.getObjects();
-    
-    const elements = objects.map(obj => {
+    return objects.map(obj => {
       const type = (obj as any).elementType || 'text';
       const x = Math.round(obj.left || 0);
       const y = Math.round(obj.top || 0);
       const w = Math.round(obj.width ? obj.width * (obj.scaleX || 1) : 0);
       const h = Math.round(obj.height ? obj.height * (obj.scaleY || 1) : 0);
-      
+
       if (type === 'title') {
         const textObj = obj as fabric.Textbox;
         return {
@@ -378,6 +425,7 @@ const PptEditor = ({ args }: ComponentProps) => {
         return {
           type: 'image',
           src: imgObj.src || '',
+          chart_key: imgObj.chartKey || '',
           x, y, w, h
         };
       } else if (type === 'chart') {
@@ -394,21 +442,37 @@ const PptEditor = ({ args }: ComponentProps) => {
           table_data: tableObj.tableData || {},
           x, y, w, h
         };
+      } else if (type === 'shape') {
+        const shapeObj = obj as fabric.Rect;
+        return {
+          type: 'shape',
+          x, y, w, h,
+          fill: shapeObj.fill
+        };
       }
-      
       return {
         type: 'text',
         content: (obj as any).text || '',
         x, y, w, h
       };
     });
-    
+  };
+
+  const saveCanvasToState = (c: fabric.Canvas, idx: number, extraProperties = {}) => {
+    if (idx < 0 || idx >= slidesRef.current.length) return;
+    const updatedSlides = JSON.parse(JSON.stringify(slidesRef.current));
+    const elements = serializeCanvasElements(c);
+
     updatedSlides[idx].elements = elements;
     setSlides(updatedSlides);
-    
+
     const stateStr = JSON.stringify(updatedSlides);
     lastSentStateRef.current = stateStr;
-    Streamlit.setComponentValue({ slides: updatedSlides });
+
+    Streamlit.setComponentValue({
+      slides: updatedSlides,
+      ...extraProperties
+    });
   };
 
   useEffect(() => {
@@ -419,27 +483,32 @@ const PptEditor = ({ args }: ComponentProps) => {
         backgroundColor: '#ffffff',
         preserveObjectStacking: true,
       });
-      
+
       const handleSelection = () => {
         setSelectedObj(c.getActiveObject());
       };
-      
+
       c.on('selection:created', handleSelection);
       c.on('selection:updated', handleSelection);
       c.on('selection:cleared', () => setSelectedObj(null));
-      
+
       c.on('object:moving', handleSelection);
       c.on('object:scaling', handleSelection);
       c.on('object:resizing', handleSelection);
 
       c.on('object:modified', () => {
+        // Track history before modification
+        const currentElements = serializeCanvasElements(c);
+        setUndoStack(prev => [...prev, currentElements]);
+        setRedoStack([]); // clear redo on new action
+
         saveCanvasToState(c, activeSlideIdxRef.current);
         setSelectedObj(c.getActiveObject());
       });
-      
+
       setCanvas(c);
     }
-    
+
     return () => {
       if (canvas) {
         canvas.dispose();
@@ -447,13 +516,15 @@ const PptEditor = ({ args }: ComponentProps) => {
     };
   }, [canvasRef]);
 
-  // Load active slide when index changes
   useEffect(() => {
     if (!canvas || slides.length === 0) return;
     loadSlide(activeSlideIdx, slides);
+    // Clear undo/redo stacks when loading a new slide
+    setUndoStack([]);
+    setRedoStack([]);
   }, [activeSlideIdx, canvas]);
 
-  // Keybindings listener: Delete & Ctrl+D to duplicate
+  // Keybindings delete/duplicate element
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!canvas) return;
@@ -464,6 +535,9 @@ const PptEditor = ({ args }: ComponentProps) => {
       if (isEditing) return;
 
       if (e.key === 'Delete' || e.key === 'Backspace') {
+        const currentElements = serializeCanvasElements(canvas);
+        setUndoStack(prev => [...prev, currentElements]);
+
         canvas.remove(activeObj);
         canvas.discardActiveObject();
         canvas.renderAll();
@@ -471,13 +545,16 @@ const PptEditor = ({ args }: ComponentProps) => {
         setSelectedObj(null);
       } else if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
         e.preventDefault();
+        const currentElements = serializeCanvasElements(canvas);
+        setUndoStack(prev => [...prev, currentElements]);
+
         activeObj.clone((cloned: fabric.Object) => {
           cloned.set({
             left: (cloned.left || 0) + 30,
             top: (cloned.top || 0) + 30,
             evented: true
           });
-          
+
           if (cloned.type === 'activeSelection') {
             (cloned as any).canvas = canvas;
             (cloned as any).forEachObject((obj: fabric.Object) => {
@@ -488,7 +565,6 @@ const PptEditor = ({ args }: ComponentProps) => {
             canvas.add(cloned);
             canvas.setActiveObject(cloned);
           }
-          
           canvas.renderAll();
           saveCanvasToState(canvas, activeSlideIdxRef.current);
         });
@@ -499,15 +575,16 @@ const PptEditor = ({ args }: ComponentProps) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [canvas]);
 
+  // Toolbar Element Creators
   const handleAddText = () => {
     if (!canvas || isLocked) return;
     const text = new fabric.Textbox('Double click to edit text', {
-      left: 100,
-      top: 100,
+      left: 200,
+      top: 200,
       width: 400,
       fontSize: 28,
       fontFamily: 'Arial',
-      fill: '#334155'
+      fill: '#ffffff'
     });
     (text as any).elementType = 'text';
     canvas.add(text);
@@ -516,17 +593,53 @@ const PptEditor = ({ args }: ComponentProps) => {
     saveCanvasToState(canvas, activeSlideIdxRef.current);
   };
 
+  const handleAddBullets = () => {
+    if (!canvas || isLocked) return;
+    const bullets = new fabric.Textbox('•  First bullet item\n•  Second bullet item', {
+      left: 200,
+      top: 200,
+      width: 500,
+      fontSize: 24,
+      fontFamily: 'Arial',
+      fill: '#cbd5e1',
+      lineHeight: 1.3
+    });
+    (bullets as any).elementType = 'bullets';
+    canvas.add(bullets);
+    canvas.setActiveObject(bullets);
+    canvas.renderAll();
+    saveCanvasToState(canvas, activeSlideIdxRef.current);
+  };
+
+  const handleAddShape = () => {
+    if (!canvas || isLocked) return;
+    const rect = new fabric.Rect({
+      left: 200,
+      top: 200,
+      width: 300,
+      height: 200,
+      fill: '#8b5cf6',
+      stroke: '#7c3aed',
+      strokeWidth: 2,
+      rx: 12,
+      ry: 12
+    });
+    (rect as any).elementType = 'shape';
+    canvas.add(rect);
+    canvas.setActiveObject(rect);
+    canvas.renderAll();
+    saveCanvasToState(canvas, activeSlideIdxRef.current);
+  };
+
   const handleAddImage = () => {
     if (!canvas || isLocked) return;
     const url = prompt('Enter Image URL:', 'https://images.unsplash.com/photo-1542744094-3a31f103e35f?w=800');
     if (!url) return;
-    
+
     fabric.Image.fromURL(url, (img) => {
       img.set({
-        left: 100,
-        top: 100,
-        width: 400,
-        height: 300,
+        left: 200,
+        top: 200,
         selectable: !isLocked,
         evented: !isLocked
       });
@@ -541,8 +654,63 @@ const PptEditor = ({ args }: ComponentProps) => {
     }, { crossOrigin: 'anonymous' });
   };
 
+  const handleAddTable = () => {
+    if (!canvas || isLocked) return;
+    const tableData = {
+      headers: ['Metric', 'Benchmark', 'Current'],
+      rows: [
+        ['Data completion', '90.0%', '98.4%'],
+        ['Processing latency', '< 500ms', '342ms']
+      ]
+    };
+    const group = renderMockTable(200, 200, 600, 180, tableData);
+    canvas.add(group);
+    canvas.setActiveObject(group);
+    canvas.renderAll();
+    saveCanvasToState(canvas, activeSlideIdxRef.current);
+  };
+
+  const handleAddChart = () => {
+    if (!canvas || isLocked) return;
+    const chartData = { title: 'Business Performance Trend' };
+    const group = renderMockChart(200, 200, 600, 360, chartData);
+    canvas.add(group);
+    canvas.setActiveObject(group);
+    canvas.renderAll();
+    saveCanvasToState(canvas, activeSlideIdxRef.current);
+  };
+
+  const handleAddSlide = () => {
+    const newSlide = {
+      id: `slide_${Date.now()}`,
+      layout: 'custom',
+      title: `Slide ${slides.length + 1}`,
+      elements: [
+        {
+          type: 'title',
+          text: 'New Slide Title',
+          x: 100,
+          y: 80,
+          w: 1400,
+          h: 100,
+          fontSize: 44,
+          fill: '#ffffff'
+        }
+      ]
+    };
+    const updatedSlides = [...slides, newSlide];
+    setSlides(updatedSlides);
+    setActiveSlideIdx(updatedSlides.length - 1);
+
+    // Save state back to streamlit component
+    Streamlit.setComponentValue({ slides: updatedSlides });
+  };
+
   const handleDeleteElement = () => {
     if (!canvas || !selectedObj || isLocked) return;
+    const currentElements = serializeCanvasElements(canvas);
+    setUndoStack(prev => [...prev, currentElements]);
+
     canvas.remove(selectedObj);
     setSelectedObj(null);
     canvas.renderAll();
@@ -551,7 +719,7 @@ const PptEditor = ({ args }: ComponentProps) => {
 
   const updateSelectedProperty = (property: string, value: any) => {
     if (!canvas || !selectedObj) return;
-    
+
     const obj = selectedObj as any;
     if (property === 'text') {
       obj.set('text', value);
@@ -565,246 +733,478 @@ const PptEditor = ({ args }: ComponentProps) => {
       obj.set('top', parseFloat(value) || 0);
     } else if (property === 'width') {
       obj.set('width', parseFloat(value) || 50);
-      obj.scaleX = 1; 
+      obj.scaleX = 1;
     } else if (property === 'height') {
       obj.set('height', parseFloat(value) || 50);
       obj.scaleY = 1;
     }
-    
+
     selectedObj.setCoords();
     canvas.renderAll();
     saveCanvasToState(canvas, activeSlideIdxRef.current);
   };
 
-  if (!slides || slides.length === 0) {
+  // Undo/Redo Handlers
+  const handleUndo = () => {
+    if (!canvas || undoStack.length === 0) return;
+    const currentElements = serializeCanvasElements(canvas);
+    setRedoStack(prev => [currentElements, ...prev]);
+
+    const previousElements = undoStack[undoStack.length - 1];
+    setUndoStack(prev => prev.slice(0, prev.length - 1));
+
+    // Reload slide with previous elements
+    const updatedSlides = JSON.parse(JSON.stringify(slides));
+    updatedSlides[activeSlideIdx].elements = previousElements;
+    setSlides(updatedSlides);
+    loadSlide(activeSlideIdx, updatedSlides);
+
+    // Save to Streamlit
+    saveCanvasToState(canvas, activeSlideIdx);
+  };
+
+  const handleRedo = () => {
+    if (!canvas || redoStack.length === 0) return;
+    const currentElements = serializeCanvasElements(canvas);
+    setUndoStack(prev => [...prev, currentElements]);
+
+    const nextElements = redoStack[0];
+    setRedoStack(prev => prev.slice(1));
+
+    const updatedSlides = JSON.parse(JSON.stringify(slides));
+    updatedSlides[activeSlideIdx].elements = nextElements;
+    setSlides(updatedSlides);
+    loadSlide(activeSlideIdx, updatedSlides);
+
+    saveCanvasToState(canvas, activeSlideIdx);
+  };
+
+  // Header Actions
+  const handleHeaderAction = (actionType: 'download' | 'save' | 'template') => {
+    if (!canvas) return;
+    saveCanvasToState(canvas, activeSlideIdx, { action: actionType });
+  };
+
+  const handleZoom = (type: 'in' | 'out' | 'set', val?: number) => {
+    if (type === 'in') {
+      setScale(prev => Math.min(prev + 0.1, 2.0));
+    } else if (type === 'out') {
+      setScale(prev => Math.max(prev - 0.1, 0.2));
+    } else if (type === 'set' && val) {
+      setScale(val);
+    }
+  };
+
+  const renderMiniPreview = (slide: any) => {
+    const isDark = slide.layout === 'title_slide' || slide.layout === 'conclusion_slide';
+    const elements = slide.elements || [];
+
     return (
-      <div className="flex h-[800px] w-full bg-[#09090b] rounded-xl border border-white/10 items-center justify-center flex-col text-zinc-100 shadow-2xl relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-indigo-900/20 via-[#09090b]/0 to-[#09090b] pointer-events-none"></div>
-        <div className="relative z-10 flex flex-col items-center">
-          <ImageIcon className="w-16 h-16 text-zinc-600 mb-4 drop-shadow-lg" />
-          <h3 className="text-xl font-semibold tracking-tight">No slides to preview</h3>
-          <p className="text-zinc-400 mt-2">Generate presentation to preview slides</p>
-        </div>
+      <div className="w-full h-14 rounded-md border border-white/5 relative overflow-hidden transition-all duration-200 bg-[#0f294a]">
+        {/* Background visual details based on layout */}
+        {slide.layout === 'title_slide' && (
+          <div className="absolute inset-0 flex flex-col justify-center items-center p-2 space-y-1">
+            <div className="w-12 h-1 bg-indigo-400 rounded-sm"></div>
+            <div className="w-8 h-0.5 bg-zinc-500 rounded-sm"></div>
+          </div>
+        )}
+        {slide.layout === 'bullet_points' && (
+          <div className="absolute inset-0 p-2 space-y-1">
+            <div className="w-8 h-1 bg-zinc-400 rounded-sm mb-1"></div>
+            <div className="w-12 h-0.5 bg-zinc-600 rounded-sm"></div>
+            <div className="w-10 h-0.5 bg-zinc-600 rounded-sm"></div>
+          </div>
+        )}
+        {slide.layout === 'visual_analysis' && (
+          <div className="absolute inset-0 p-1.5 flex space-x-1.5">
+            <div className="flex-1 space-y-0.5">
+              <div className="w-5 h-1 bg-zinc-400 rounded-sm mb-1"></div>
+              <div className="w-full h-0.5 bg-zinc-600 rounded-sm"></div>
+              <div className="w-4/5 h-0.5 bg-zinc-600 rounded-sm"></div>
+            </div>
+            <div className="w-8 h-8 bg-indigo-500/20 border border-indigo-500/30 rounded flex items-center justify-center">
+              <BarChart3 className="w-3 h-3 text-indigo-400" />
+            </div>
+          </div>
+        )}
+        {/* Generic or Custom elements rendering */}
+        {slide.layout !== 'title_slide' && slide.layout !== 'bullet_points' && slide.layout !== 'visual_analysis' && (
+          <div className="absolute inset-0 p-2 space-y-1">
+            <div className="w-10 h-1 bg-zinc-400 rounded-sm mb-1"></div>
+            <div className="flex flex-wrap gap-1">
+              {elements.slice(0, 3).map((el: any, i: number) => {
+                if (el.type === 'image' || el.type === 'chart') {
+                  return <div key={i} className="w-4 h-3 bg-indigo-500/20 rounded border border-indigo-500/30"></div>;
+                } else if (el.type === 'table') {
+                  return <div key={i} className="w-4 h-3 bg-teal-500/20 rounded border border-teal-500/30"></div>;
+                } else {
+                  return <div key={i} className="w-6 h-0.5 bg-zinc-600 rounded-sm"></div>;
+                }
+              })}
+            </div>
+          </div>
+        )}
       </div>
     );
-  }
+  };
 
   const isTextObj = selectedObj && (selectedObj.type === 'textbox' || selectedObj.type === 'i-text');
 
   return (
-    <div className="flex h-[800px] w-full bg-[#09090b] rounded-xl overflow-hidden border border-white/10 text-zinc-100 select-none shadow-2xl font-sans">
-      {/* Sidebar - Slide Thumbnails (250px) */}
-      <div className="w-[250px] min-w-[250px] bg-[#18181b]/80 backdrop-blur-xl border-r border-white/5 flex flex-col overflow-y-auto z-10">
-        <div className="px-5 py-4 border-b border-white/5 font-bold text-zinc-200 flex justify-between items-center text-xs tracking-wider uppercase">
-          <span>Slides Preview</span>
-          <span className="text-[10px] font-bold px-2 py-0.5 bg-indigo-500/20 text-indigo-300 rounded-full border border-indigo-500/30">{slides.length}</span>
-        </div>
-        <div className="p-4 space-y-4">
-          {slides.map((slide, idx) => (
-            <React.Fragment key={idx}>
-              <div 
-                onClick={() => setActiveSlideIdx(idx)}
-                className={`p-3 rounded-xl cursor-pointer border transition-all duration-200 group ${activeSlideIdx === idx ? 'border-indigo-500/50 bg-indigo-500/10 shadow-[0_0_15px_rgba(99,102,241,0.15)] scale-[1.02]' : 'border-transparent hover:bg-white/5 hover:border-white/10'}`}
-              >
-                <div className={`text-[10px] font-bold mb-1.5 transition-colors ${activeSlideIdx === idx ? 'text-indigo-400' : 'text-zinc-500 group-hover:text-zinc-400'}`}>SLIDE {idx + 1}</div>
-                <div className={`text-sm font-semibold truncate transition-colors ${activeSlideIdx === idx ? 'text-zinc-100' : 'text-zinc-300 group-hover:text-zinc-200'}`}>{slide.title || 'Untitled Slide'}</div>
-                <div className="text-xs text-zinc-500 mt-1.5 capitalize font-medium">{slide.layout?.replace('_', ' ')}</div>
-              </div>
-              {idx < slides.length - 1 && (
-                <div className="border-t border-white/5 my-2 mx-2" />
-              )}
-            </React.Fragment>
-          ))}
-        </div>
-      </div>
+    <div className="flex flex-col h-[800px] w-full bg-[#0d0d0e] rounded-2xl overflow-hidden border border-white/10 text-zinc-100 select-none shadow-2xl font-sans relative">
 
-      {/* Main Canvas Editor Area (Flex centered) */}
-      <div className="flex-1 flex flex-col relative z-0">
-        {/* Toolbar */}
-        <div className="h-16 bg-[#18181b]/80 backdrop-blur-xl border-b border-white/5 flex items-center px-6 justify-between z-10 shadow-sm">
-          <div className="flex items-center space-x-3">
-            <button 
-              onClick={handleAddText}
-              disabled={isLocked}
-              className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-30 text-zinc-200 flex items-center text-xs font-semibold transition-all border border-white/5 hover:border-white/10 hover:shadow-md"
+      {/* 1. Top Header Bar with profile avatar */}
+      <div className="h-[60px] bg-[#161619]/95 border-b border-white/[0.06] flex items-center justify-between px-6 z-25 relative shadow-md">
+        {/* Left: Branding */}
+        <div className="flex items-center space-x-3">
+          <span className="text-sm font-extrabold tracking-wider text-zinc-100 uppercase">Workspase</span>
+        </div>
+
+        {/* Right: Actions and Controls */}
+        <div className="flex items-center space-x-4">
+
+          {/* Main Action Buttons */}
+          <div className="flex items-center space-x-2.5">
+            <button
+              onClick={() => handleHeaderAction('template')}
+              className="px-4 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 flex items-center text-xs font-semibold transition-all border border-indigo-500/30"
             >
-              <Type className="w-4 h-4 mr-2" /> Add Text
+              <Share2 className="w-3.5 h-3.5 mr-1.5" /> Template replacement
             </button>
-            <button 
-              onClick={handleAddImage}
-              disabled={isLocked}
-              className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-30 text-zinc-200 flex items-center text-xs font-semibold transition-all border border-white/5 hover:border-white/10 hover:shadow-md"
+            <button
+              onClick={() => handleHeaderAction('save')}
+              className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white flex items-center text-xs font-semibold transition-all border border-indigo-500/30 shadow-md hover:shadow-indigo-500/20"
             >
-              <ImageIcon className="w-4 h-4 mr-2" /> Add Image
-            </button>
-            <div className="w-px h-6 bg-white/10 mx-2"></div>
-            <button 
-              onClick={handleDeleteElement}
-              disabled={!selectedObj || isLocked}
-              className="px-4 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 disabled:opacity-30 text-red-400 flex items-center text-xs font-semibold transition-all border border-red-500/20 hover:border-red-500/30 hover:shadow-[0_0_10px_rgba(239,68,68,0.2)]"
-            >
-              <Trash2 className="w-4 h-4 mr-2" /> Delete
+              <Save className="w-3.5 h-3.5 mr-1.5" /> Save
             </button>
           </div>
-          
+
+          <div className="w-px h-5 bg-white/10"></div>
+
+          {/* Quick Icons Reset to Mockup Way */}
           <div className="flex items-center space-x-2">
-            <button 
-              onClick={() => {
-                const newLock = !isLocked;
-                setIsLocked(newLock);
-                if (canvas) {
-                  canvas.getObjects().forEach(obj => {
-                    obj.selectable = !newLock;
-                    obj.evented = !newLock;
-                  });
-                  canvas.discardActiveObject();
-                  canvas.renderAll();
-                }
-              }}
-              className={`px-4 py-2 rounded-lg flex items-center text-xs font-semibold transition-all border ${isLocked ? 'bg-amber-500/20 text-amber-300 border-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.15)]' : 'bg-white/5 hover:bg-white/10 text-zinc-200 border-white/5 hover:border-white/10'}`}
+            <button
+              onClick={handleUndo}
+              disabled={undoStack.length === 0}
+              className="p-1.5 rounded-lg bg-white/[0.02] hover:bg-white/[0.08] disabled:opacity-20 text-zinc-400 hover:text-white transition-colors"
+              title="Undo"
             >
-              {isLocked ? <Lock className="w-4 h-4 mr-2" /> : <Unlock className="w-4 h-4 mr-2" />}
-              {isLocked ? 'Locked Layout' : 'Unlock Layout'}
+              <Undo2 className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleRedo}
+              disabled={redoStack.length === 0}
+              className="p-1.5 rounded-lg bg-white/[0.02] hover:bg-white/[0.08] disabled:opacity-20 text-zinc-400 hover:text-white transition-colors"
+              title="Redo"
+            >
+              <Redo2 className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleAddTable}
+              disabled={isLocked}
+              className="p-1.5 rounded-lg bg-white/[0.02] hover:bg-white/[0.08] disabled:opacity-20 text-zinc-400 hover:text-white transition-colors"
+              title="Add Table"
+            >
+              <TableIcon className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleAddChart}
+              disabled={isLocked}
+              className="p-1.5 rounded-lg bg-white/[0.02] hover:bg-white/[0.08] disabled:opacity-20 text-zinc-400 hover:text-white transition-colors"
+              title="Add Chart"
+            >
+              <BarChart3 className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="w-px h-5 bg-white/10"></div>
+
+          {/* Selector & Zoom */}
+          <div className="flex items-center space-x-2">
+            <span className="text-xs text-zinc-500 font-bold px-2.5 py-1 bg-white/[0.03] border border-white/[0.06] rounded-lg">Edit</span>
+            <div className="flex items-center bg-white/[0.03] border border-white/[0.06] rounded-lg p-0.5">
+              <button onClick={() => handleZoom('out')} className="p-1 hover:bg-white/[0.06] rounded-md text-zinc-400 hover:text-white"><ZoomOut className="w-3.5 h-3.5" /></button>
+              <span className="text-[11px] font-mono font-bold w-12 text-center text-zinc-300">{Math.round(scale * 100)}%</span>
+              <button onClick={() => handleZoom('in')} className="p-1 hover:bg-white/[0.06] rounded-md text-zinc-400 hover:text-white"><ZoomIn className="w-3.5 h-3.5" /></button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      {/* 2. Main Workspace Layout */}
+      <div className="flex-1 flex overflow-hidden relative">
+
+        {/* Left Sidebar - slide navigator (collapsible) */}
+        <div
+          className={`h-full bg-[#131316]/95 border-r border-white/[0.06] flex flex-col transition-all duration-300 relative z-20 shadow-lg ${isLeftBarOpen ? 'w-[210px]' : 'w-0 border-r-0 overflow-hidden'
+            }`}
+        >
+          <div className="p-3 border-b border-white/[0.06]">
+            <button
+              onClick={handleAddSlide}
+              className="w-full py-1.5 rounded-lg border border-white/10 hover:border-indigo-500/50 bg-white/[0.02] hover:bg-indigo-500/10 text-zinc-300 hover:text-white text-xs font-bold transition-all"
+            >
+              + Add Slide
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-3 space-y-2 select-none">
+            {slides.map((slide, idx) => (
+              <div
+                key={idx}
+                onClick={() => setActiveSlideIdx(idx)}
+                className={`p-2 mx-2 rounded-xl cursor-pointer border transition-all duration-200 group flex items-start space-x-2.5 ${activeSlideIdx === idx
+                    ? 'border-indigo-500/50 bg-indigo-500/10 shadow-[0_0_15px_rgba(99,102,241,0.15)] scale-[1.01]'
+                    : 'border-transparent hover:bg-white/5 hover:border-white/10'
+                  }`}
+              >
+                <div className="text-[10px] font-bold text-zinc-500 w-4 pt-1.5 text-right">{idx + 1}</div>
+                <div className="flex-1 min-w-0">
+                  {renderMiniPreview(slide)}
+                  <div className="text-xs font-semibold truncate text-zinc-300 mt-1.5 group-hover:text-zinc-200">{slide.title || 'Untitled'}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="p-3 border-t border-white/[0.06]">
+            <button className="w-full py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-extrabold shadow-md">
+              Slide{activeSlideIdx + 1} / {slides.length}
             </button>
           </div>
         </div>
 
-        {/* Viewport Canvas container */}
-        <div ref={containerRef} className="flex-1 bg-[#09090b] flex items-center justify-center p-6 overflow-hidden relative shadow-inner">
-          <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '32px 32px' }}></div>
-          <div 
-            className="shadow-[0_20px_50px_rgba(0,0,0,0.5)] bg-white absolute transition-transform duration-75 ring-1 ring-white/10" 
-            style={{ 
-              width: SLIDE_WIDTH, 
-              height: SLIDE_HEIGHT, 
-              transform: `scale(${scale})`, 
-              transformOrigin: 'center center' 
+        {/* Left Toggle arrow tab */}
+        <button
+          onClick={() => setIsLeftBarOpen(!isLeftBarOpen)}
+          className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-12 bg-[#131316] hover:bg-indigo-600/30 border border-white/10 hover:border-indigo-500 border-l-0 rounded-r-lg z-25 flex items-center justify-center text-zinc-500 hover:text-white transition-all shadow-md"
+        >
+          {isLeftBarOpen ? <ChevronLeft className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+        </button>
+
+        {/* Center Canvas Viewport - scrollable zoom viewport */}
+        <div ref={containerRef} className="flex-1 bg-[#c1d8f7] flex items-center justify-center p-8 overflow-auto relative dot-grid">
+          <div
+            style={{
+              width: SLIDE_WIDTH * scale,
+              height: SLIDE_HEIGHT * scale,
+              position: 'relative'
             }}
+            className="slide-canvas-shadow bg-white rounded-sm ring-1 ring-black/20"
           >
-            <canvas ref={canvasRef} />
-            {slides[activeSlideIdx]?.layout === 'visual_analysis' && (
-               <div className="absolute inset-0 bg-zinc-900/40 flex items-center justify-center pointer-events-none backdrop-blur-[2px]">
-                 <div className="bg-[#18181b]/95 text-zinc-100 border border-white/10 px-8 py-4 rounded-2xl shadow-2xl text-xl font-bold tracking-tight">
-                   Chart Analytics Canvas (Read Only)
-                 </div>
-               </div>
-            )}
+            <div
+              style={{
+                width: SLIDE_WIDTH,
+                height: SLIDE_HEIGHT,
+                transform: `scale(${scale})`,
+                transformOrigin: 'top left',
+                position: 'absolute',
+                left: 0,
+                top: 0
+              }}
+            >
+              <canvas ref={canvasRef} />
+              {slides[activeSlideIdx]?.layout === 'visual_analysis' && (
+                <div className="absolute inset-0 bg-zinc-900/40 flex items-center justify-center pointer-events-none backdrop-blur-[2px]">
+                  <div className="bg-[#18181b]/95 text-zinc-100 border border-white/10 px-8 py-4 rounded-2xl shadow-2xl text-xl font-bold tracking-tight">
+                    Chart Analytics Canvas (Read Only)
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Properties Panel (300px) */}
-      <div className="w-[300px] min-w-[300px] bg-[#18181b]/80 backdrop-blur-xl border-l border-white/5 flex flex-col z-10">
-        <div className="px-5 py-4 border-b border-white/5 font-bold text-zinc-200 flex items-center text-xs tracking-wider uppercase">
-          <Settings className="w-4 h-4 mr-2 text-indigo-400" />
-          <span>Properties Panel</span>
-        </div>
-        
-        {selectedObj ? (
-          <div className="p-5 flex-1 overflow-y-auto space-y-6">
-            {/* Position and Size */}
-            <div>
-              <span className="text-[10px] font-bold text-zinc-500 tracking-wider block mb-3 uppercase">Layout Position</span>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[10px] font-semibold text-zinc-400 block mb-1.5 uppercase">Pos X</label>
-                  <input 
-                    type="number" 
-                    value={Math.round(selectedObj.left || 0)} 
-                    onChange={(e) => updateSelectedProperty('left', e.target.value)}
-                    className="w-full bg-[#09090b] border border-white/10 rounded-lg px-3 py-1.5 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all shadow-inner"
-                  />
+        {/* 3. Collapsible Right Properties Panel (sidebar layout, visible only on selection) */}
+        {selectedObj && (
+          <div className="w-[280px] h-full bg-[#161619]/95 border-l border-white/[0.06] flex flex-col z-20 shadow-lg relative animate-fade-in">
+            <div className="px-4 py-3 bg-white/[0.02] border-b border-white/[0.06] flex items-center justify-between">
+              <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider flex items-center">
+                <Settings className="w-3.5 h-3.5 mr-1.5" /> Element Settings
+              </span>
+              <button
+                onClick={() => {
+                  if (canvas) {
+                    canvas.discardActiveObject();
+                    canvas.renderAll();
+                    setSelectedObj(null);
+                  }
+                }}
+                className="text-zinc-500 hover:text-zinc-300 text-xs font-bold font-sans"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-4 space-y-4 overflow-y-auto flex-1">
+
+              {/* Positions */}
+              <div>
+                <label className="text-[9px] font-bold text-zinc-400 block mb-2 uppercase tracking-wider">Coordinates</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="bg-[#0c0c0d] border border-white/10 rounded-lg p-1.5 flex items-center">
+                    <span className="text-[10px] text-zinc-500 font-mono w-4">X</span>
+                    <input
+                      type="number"
+                      value={Math.round(selectedObj.left || 0)}
+                      onChange={(e) => updateSelectedProperty('left', e.target.value)}
+                      className="bg-transparent border-0 w-full text-xs text-zinc-200 focus:outline-none p-0 ml-1 font-mono"
+                    />
+                  </div>
+                  <div className="bg-[#0c0c0d] border border-white/10 rounded-lg p-1.5 flex items-center">
+                    <span className="text-[10px] text-zinc-500 font-mono w-4">Y</span>
+                    <input
+                      type="number"
+                      value={Math.round(selectedObj.top || 0)}
+                      onChange={(e) => updateSelectedProperty('top', e.target.value)}
+                      className="bg-transparent border-0 w-full text-xs text-zinc-200 focus:outline-none p-0 ml-1 font-mono"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="text-[10px] font-semibold text-zinc-400 block mb-1.5 uppercase">Pos Y</label>
-                  <input 
-                    type="number" 
-                    value={Math.round(selectedObj.top || 0)} 
-                    onChange={(e) => updateSelectedProperty('top', e.target.value)}
-                    className="w-full bg-[#09090b] border border-white/10 rounded-lg px-3 py-1.5 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all shadow-inner"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-semibold text-zinc-400 block mb-1.5 uppercase">Width</label>
-                  <input 
-                    type="number" 
-                    value={Math.round(selectedObj.width ? selectedObj.width * (selectedObj.scaleX || 1) : 0)} 
-                    onChange={(e) => updateSelectedProperty('width', e.target.value)}
-                    className="w-full bg-[#09090b] border border-white/10 rounded-lg px-3 py-1.5 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all shadow-inner"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-semibold text-zinc-400 block mb-1.5 uppercase">Height</label>
-                  <input 
-                    type="number" 
-                    value={Math.round(selectedObj.height ? selectedObj.height * (selectedObj.scaleY || 1) : 0)} 
-                    onChange={(e) => updateSelectedProperty('height', e.target.value)}
-                    className="w-full bg-[#09090b] border border-white/10 rounded-lg px-3 py-1.5 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all shadow-inner"
-                  />
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  <div className="bg-[#0c0c0d] border border-white/10 rounded-lg p-1.5 flex items-center">
+                    <span className="text-[10px] text-zinc-500 font-mono w-4">W</span>
+                    <input
+                      type="number"
+                      value={Math.round(selectedObj.width ? selectedObj.width * (selectedObj.scaleX || 1) : 0)}
+                      onChange={(e) => updateSelectedProperty('width', e.target.value)}
+                      className="bg-transparent border-0 w-full text-xs text-zinc-200 focus:outline-none p-0 ml-1 font-mono"
+                    />
+                  </div>
+                  <div className="bg-[#0c0c0d] border border-white/10 rounded-lg p-1.5 flex items-center">
+                    <span className="text-[10px] text-zinc-500 font-mono w-4">H</span>
+                    <input
+                      type="number"
+                      value={Math.round(selectedObj.height ? selectedObj.height * (selectedObj.scaleY || 1) : 0)}
+                      onChange={(e) => updateSelectedProperty('height', e.target.value)}
+                      className="bg-transparent border-0 w-full text-xs text-zinc-200 focus:outline-none p-0 ml-1 font-mono"
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-            
-            <div className="border-t border-white/5" />
 
-            {/* Font Style edits if Text */}
-            {isTextObj && (
-              <div className="space-y-6">
-                <div>
-                  <span className="text-[10px] font-bold text-zinc-500 tracking-wider block mb-3 uppercase">Font Properties</span>
-                  <div className="grid grid-cols-2 gap-3">
+              {/* Font Options for Text Elements */}
+              {isTextObj && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="text-[10px] font-semibold text-zinc-400 block mb-1.5 uppercase">Size</label>
-                      <input 
-                        type="number" 
-                        value={(selectedObj as any).fontSize || 24} 
+                      <label className="text-[9px] font-bold text-zinc-400 block mb-1 uppercase tracking-wider">Size</label>
+                      <input
+                        type="number"
+                        value={(selectedObj as any).fontSize || 24}
                         onChange={(e) => updateSelectedProperty('fontSize', e.target.value)}
-                        className="w-full bg-[#09090b] border border-white/10 rounded-lg px-3 py-1.5 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all shadow-inner"
+                        className="w-full bg-[#0c0c0d] border border-white/10 rounded-lg px-2 py-1.5 text-xs text-zinc-200 focus:outline-none"
                       />
                     </div>
                     <div>
-                      <label className="text-[10px] font-semibold text-zinc-400 block mb-1.5 uppercase">Color</label>
-                      <input 
-                        type="color" 
-                        value={selectedObj.fill as string || '#333333'} 
+                      <label className="text-[9px] font-bold text-zinc-400 block mb-1 uppercase tracking-wider">Color</label>
+                      <input
+                        type="color"
+                        value={selectedObj.fill as string || '#333333'}
                         onChange={(e) => updateSelectedProperty('fill', e.target.value)}
-                        className="w-full h-[34px] bg-[#09090b] border border-white/10 rounded-lg cursor-pointer p-0.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
+                        className="w-full h-[29px] bg-[#0c0c0d] border border-white/10 rounded-lg cursor-pointer p-0.5 focus:outline-none"
                       />
                     </div>
                   </div>
-                </div>
 
-                <div>
-                  <label className="text-[10px] font-bold text-zinc-500 tracking-wider block mb-3 uppercase">Edit Content</label>
-                  <textarea 
-                    value={(selectedObj as any).text || ''} 
-                    onChange={(e) => updateSelectedProperty('text', e.target.value)}
-                    className="w-full bg-[#09090b] border border-white/10 rounded-lg px-3 py-3 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 font-sans leading-relaxed transition-all shadow-inner resize-y"
-                    rows={8}
-                  />
+                  <div>
+                    <label className="text-[9px] font-bold text-zinc-400 block mb-1 uppercase tracking-wider">Content Text</label>
+                    <textarea
+                      value={(selectedObj as any).text || ''}
+                      onChange={(e) => updateSelectedProperty('text', e.target.value)}
+                      className="w-full bg-[#0c0c0d] border border-white/10 rounded-lg px-2.5 py-2 text-xs text-zinc-200 focus:outline-none leading-relaxed"
+                      rows={5}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Layers/Stacking controls inside Properties Panel */}
+              <div className="space-y-2">
+                <label className="text-[9px] font-bold text-zinc-400 block uppercase tracking-wider">Layer Actions</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => {
+                      if (!canvas || !selectedObj) return;
+                      canvas.bringToFront(selectedObj);
+                      canvas.renderAll();
+                      saveCanvasToState(canvas, activeSlideIdxRef.current);
+                    }}
+                    className="py-1.5 px-3 bg-white/[0.04] hover:bg-white/[0.08] text-xs font-semibold text-zinc-200 border border-white/10 rounded-lg transition-colors flex items-center justify-center"
+                    title="Bring element to top layer"
+                  >
+                    Bring to Front
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (!canvas || !selectedObj) return;
+                      canvas.sendToBack(selectedObj);
+                      // Make sure canvas background is still behind
+                      const bg = canvas.backgroundImage;
+                      if (bg && typeof bg !== 'string') {
+                        canvas.sendToBack(bg as any);
+                      }
+                      canvas.renderAll();
+                      saveCanvasToState(canvas, activeSlideIdxRef.current);
+                    }}
+                    className="py-1.5 px-3 bg-white/[0.04] hover:bg-white/[0.08] text-xs font-semibold text-zinc-200 border border-white/10 rounded-lg transition-colors flex items-center justify-center"
+                    title="Send element to back layer"
+                  >
+                    Send to Back
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  <button
+                    onClick={() => {
+                      if (!canvas || !selectedObj) return;
+                      const activeObj = selectedObj as any;
+                      const newLockState = !activeObj.lockMovementX;
+                      activeObj.set({
+                        lockMovementX: newLockState,
+                        lockMovementY: newLockState,
+                        lockScalingX: newLockState,
+                        lockScalingY: newLockState,
+                        lockRotation: newLockState,
+                        hasControls: !newLockState
+                      });
+                      canvas.discardActiveObject();
+                      canvas.renderAll();
+                      saveCanvasToState(canvas, activeSlideIdxRef.current);
+                      setSelectedObj(null);
+                    }}
+                    className={`py-1.5 px-3 text-xs font-semibold border rounded-lg transition-colors flex items-center justify-center ${selectedObj.lockMovementX
+                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                        : 'bg-white/[0.04] hover:bg-white/[0.08] text-zinc-200 border-white/10'
+                      }`}
+                  >
+                    {selectedObj.lockMovementX ? 'Unlock Layer' : 'Lock Layer'}
+                  </button>
+                  <button
+                    onClick={handleDeleteElement}
+                    className="py-1.5 px-3 bg-red-500/10 hover:bg-red-500/20 text-xs font-semibold text-red-400 border border-red-500/20 rounded-lg transition-colors flex items-center justify-center"
+                  >
+                    Delete Element
+                  </button>
                 </div>
               </div>
-            )}
-            
-            {/* Non-text elements details */}
-            {!isTextObj && (
-              <div>
-                <span className="text-[10px] font-bold text-zinc-500 tracking-wider block mb-3 uppercase">Element Type</span>
-                <div className="px-4 py-2.5 bg-indigo-500/10 rounded-lg text-sm font-semibold capitalize text-indigo-300 border border-indigo-500/20 shadow-inner">
-                  {(selectedObj as any).elementType || selectedObj.type}
+
+              {/* Component Type Display */}
+              {!isTextObj && (
+                <div className="pt-1.5">
+                  <div className="px-3 py-2 bg-indigo-500/10 rounded-lg text-[11px] font-semibold capitalize text-indigo-300 border border-indigo-500/20 shadow-inner">
+                    {(selectedObj as any).elementType || selectedObj.type} Element
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="p-8 flex-1 flex flex-col justify-center items-center text-center text-zinc-500 bg-[#09090b]/30">
-            <Layout className="w-16 h-16 text-zinc-700 mb-4 drop-shadow-md" />
-            <p className="text-xs leading-relaxed max-w-[200px]">
-              Select an element on the canvas to configure its position, content, and styling parameters.
-            </p>
+              )}
+
+            </div>
           </div>
         )}
+
+
+
       </div>
+
     </div>
   );
 };

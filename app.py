@@ -1697,17 +1697,38 @@ def render_upload():
                 st.error(f"Failed to load dataset: {exc}")
 
     with right:
-        st.markdown('<div class="section-label">Workspace Snapshot</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-label">AI Analyst System Status</div>', unsafe_allow_html=True)
         c1, c2 = st.columns(2)
         with c1:
-            render_status("Formats", "CSV, Excel, JSON, PDF", "SQLite is available for query-based intake.")
+            render_status("Ingestion Formats", "CSV, Excel, JSON, PDF", "Full schema parsing and structure extraction.")
         with c2:
-            render_status("Output", "PPT report", "Selected charts are included in the export.")
+            render_status("Output Targets", "PPTX, PDF Reports", "Auto-layout mapping and design presentation exports.")
 
+        # Premium custom HTML card layout for the agent status / instructions
         st.markdown(
             """
-<div class="empty-note">
-    Upload a dataset to open the dashboard.
+<div style="background: rgba(30, 41, 59, 0.4); border: 1px solid var(--border); border-radius: 16px; padding: 1.6rem; box-shadow: var(--shadow); margin-top: 1rem;">
+    <h3 style="margin-top: 0; color: var(--teal); font-size: 1.15rem; font-weight: 800; display: flex; align-items: center; gap: 8px;">
+        🤖 ACTIVE ANALYST AGENTS
+    </h3>
+    <ul style="list-style-type: none; padding-left: 0; margin-bottom: 0; display: grid; gap: 1rem;">
+        <li style="border-left: 3px solid var(--blue); padding-left: 12px; margin-bottom: 0;">
+            <strong style="color: var(--ink); font-size: 0.95rem; display: block;">Data Intake & Schema Profiler</strong>
+            <span style="color: var(--muted); font-size: 0.84rem; display: block; margin-top: 2px;">Parses column types, records count, missing value statistics, and duplicate rates.</span>
+        </li>
+        <li style="border-left: 3px solid var(--teal); padding-left: 12px; margin-bottom: 0;">
+            <strong style="color: var(--ink); font-size: 0.95rem; display: block;">Visual Analyst Agent</strong>
+            <span style="color: var(--muted); font-size: 0.84rem; display: block; margin-top: 2px;">Identifies trends, distributions, segment relationships, and builds a Plotly chart catalog.</span>
+        </li>
+        <li style="border-left: 3px solid var(--amber); padding-left: 12px; margin-bottom: 0;">
+            <strong style="color: var(--ink); font-size: 0.95rem; display: block;">Multi-Agent AI Workspace</strong>
+            <span style="color: var(--muted); font-size: 0.84rem; display: block; margin-top: 2px;">Processes high-level business queries and extracts recommendations via LLMs.</span>
+        </li>
+        <li style="border-left: 3px solid #6d4aff; padding-left: 12px; margin-bottom: 0;">
+            <strong style="color: var(--ink); font-size: 0.95rem; display: block;">Presentation Exporter</strong>
+            <span style="color: var(--muted); font-size: 0.84rem; display: block; margin-top: 2px;">Maps your interactive editor design to native PowerPoint slides shape-by-shape.</span>
+        </li>
+    </ul>
 </div>
 """,
             unsafe_allow_html=True,
@@ -1957,7 +1978,22 @@ def render_ai_workspace(df):
         render_readable_value(result.get("recommendations", ""))
 
 
+def get_image_base64(path):
+    import base64
+    import os
+    if not path or not os.path.exists(path):
+        return ""
+    try:
+        with open(path, "rb") as image_file:
+            encoded_string = base64.b64encode(image_file.read()).decode("utf-8")
+            return f"data:image/png;base64,{encoded_string}"
+    except Exception as exc:
+        print(f"Error base64 encoding image: {exc}")
+        return ""
+
+
 def render_report(df, charts, profile, quality_report):
+    import os
     lookup = chart_lookup(charts)
     selected_keys = [key for key in st.session_state.selected_chart_keys if key in lookup]
     selected_charts = [lookup[key] for key in selected_keys if lookup[key].path]
@@ -2002,24 +2038,59 @@ def render_report(df, charts, profile, quality_report):
             import re
             
             with st.spinner("Analyzing data and generating slide layouts..."):
+                # Format a list of selected charts for the AI
+                selected_charts_info = ""
+                if selected_charts:
+                    selected_charts_info = "\nAvailable Selected Charts (you should include these in 'visual_analysis' layouts using type='image' and src set to the exact Chart Key):\n"
+                    for chart in selected_charts:
+                        selected_charts_info += f"- Chart Key: '{chart.key}' (Title: '{chart.title}', Caption: '{chart.caption}')\n"
+                else:
+                    selected_charts_info = "\nNo custom charts have been selected by the user yet.\n"
+
                 prompt = (
                     "You are a Presentation Layout Engine.\n"
-                    "Transform the analysis into a JSON presentation state.\n"
+                    "Transform the analysis insights, recommendations, and available charts into a JSON presentation state.\n"
                     "Output ONLY valid JSON matching this schema:\n"
                     "{\n"
                     "  \"slides\": [\n"
                     "    {\n"
                     "      \"id\": \"slide_1\",\n"
-                    "      \"editable\": true,\n"
                     "      \"layout\": \"title_slide\",\n"
                     "      \"title\": \"Slide Title\",\n"
                     "      \"elements\": [\n"
-                    "        {\"type\": \"textbox\", \"text\": \"...\"}\n"
+                    "        {\n"
+                    "          \"type\": \"title\",\n"
+                    "          \"text\": \"Title Text\",\n"
+                    "          \"x\": 100, \"y\": 250, \"w\": 1000, \"h\": 150,\n"
+                    "          \"fontSize\": 54, \"fill\": \"#1e293b\"\n"
+                    "        },\n"
+                    "        {\n"
+                    "          \"type\": \"text\",\n"
+                    "          \"text\": \"Regular text paragraph\",\n"
+                    "          \"x\": 100, \"y\": 420, \"w\": 1000, \"h\": 200,\n"
+                    "          \"fontSize\": 24, \"fill\": \"#64748b\"\n"
+                    "        },\n"
+                    "        {\n"
+                    "          \"type\": \"bullets\",\n"
+                    "          \"items\": [\"Bullet point 1\", \"Bullet point 2\"],\n"
+                    "          \"x\": 100, \"y\": 220, \"w\": 1400, \"h\": 500,\n"
+                    "          \"fontSize\": 26, \"fill\": \"#475569\"\n"
+                    "        },\n"
+                    "        {\n"
+                    "          \"type\": \"image\",\n"
+                    "          \"src\": \"Chart Key (e.g. missing_values)\",\n"
+                    "          \"x\": 650, \"y\": 200, \"w\": 850, \"h\": 550\n"
+                    "        }\n"
                     "      ]\n"
                     "    }\n"
                     "  ]\n"
-                    "}\n"
-                    "Supported layouts: title_slide, kpi_cards, visual_analysis, bullet_points.\n"
+                    "}\n\n"
+                    "Guidelines for Layouts and Element Placement:\n"
+                    "- Coordinate space is 1600 width x 900 height.\n"
+                    "- 'title_slide': Use type='title' (centered or left, e.g. x:100, y:200, w:1000, h:150) and type='text' for subtitle.\n"
+                    "- 'bullet_points': Include a slide title (type='title', x:100, y:80, w:1400, h:100, fontSize: 44) and bullet points (type='bullets', x:100, y:200, w:1400, h:600, fontSize: 28).\n"
+                    "- 'visual_analysis': Include a slide title (type='title'), a descriptive text block (type='text', x:100, y:200, w:500, h:600, fontSize: 24), and an image element displaying the chart (type='image', src='<Chart Key>', x:650, y:200, w:850, h:550).\n"
+                    f"{selected_charts_info}\n"
                     f"Insights: {insights}\n"
                     f"Recommendations: {recommendations}\n"
                 )
@@ -2032,72 +2103,110 @@ def render_report(df, charts, profile, quality_report):
                     st.success("Presentation generated! Review and edit the slides below.")
                 except Exception as e:
                     st.warning(f"Using default slide template because AI generation failed: {e}")
-                    fallback_state = {
-                        "slides": [
-                            {
-                                "id": "slide_1",
-                                "editable": True,
-                                "layout": "title_slide",
-                                "title": "Executive Data Analytics Report",
-                                "elements": [
-                                    {
-                                        "type": "title",
-                                        "text": "Executive Data Analytics Report",
-                                        "left": 80,
-                                        "top": 120,
-                                        "width": 800,
-                                        "fontSize": 44,
-                                        "fill": "#1e293b"
-                                    },
-                                    {
-                                        "type": "textbox",
-                                        "text": f"Dataset: {StateManager.get_file_name() or 'Active Dataset'}\nGenerated automatically. Double click any text block to edit and format.",
-                                        "left": 80,
-                                        "top": 240,
-                                        "width": 800,
-                                        "fontSize": 24,
-                                        "fill": "#64748b"
-                                    }
-                                ]
-                            },
-                            {
-                                "id": "slide_2",
-                                "editable": True,
-                                "layout": "kpi_cards",
-                                "title": "Key Metrics & Recommendations",
-                                "elements": [
-                                    {
-                                        "type": "title",
-                                        "text": "Key Metrics & Recommendations",
-                                        "left": 80,
-                                        "top": 50,
-                                        "width": 800,
-                                        "fontSize": 36,
-                                        "fill": "#1e293b"
-                                    },
-                                    {
-                                        "type": "textbox",
-                                        "text": "Recommendations Overview:",
-                                        "left": 80,
-                                        "top": 150,
-                                        "width": 800,
-                                        "fontSize": 24,
-                                        "fill": "#4f46e5"
-                                    },
-                                    {
-                                        "type": "textbox",
-                                        "text": "- Improve completeness of critical columns by imputation.\n- Track anomalies in key financial metrics.\n- Establish standard pipelines for data ingestion.",
-                                        "left": 80,
-                                        "top": 220,
-                                        "width": 800,
-                                        "fontSize": 20,
-                                        "fill": "#475569"
-                                    }
-                                ]
-                            }
-                        ]
-                    }
-                    st.session_state.presentation_state = fallback_state
+                    
+                    fallback_slides = [
+                        {
+                            "id": "slide_1",
+                            "editable": True,
+                            "layout": "title_slide",
+                            "title": "Executive Data Analytics Report",
+                            "elements": [
+                                {
+                                    "type": "title",
+                                    "text": "Executive Data Analytics Report",
+                                    "x": 100,
+                                    "y": 250,
+                                    "w": 1000,
+                                    "h": 150,
+                                    "fontSize": 54,
+                                    "fill": "#1e293b"
+                                },
+                                {
+                                    "type": "text",
+                                    "text": f"Dataset: {StateManager.get_file_name() or 'Active Dataset'}\nGenerated automatically. Double click any text block to edit and format.",
+                                    "x": 100,
+                                    "y": 420,
+                                    "w": 1000,
+                                    "h": 200,
+                                    "fontSize": 24,
+                                    "fill": "#64748b"
+                                }
+                            ]
+                        },
+                        {
+                            "id": "slide_2",
+                            "editable": True,
+                            "layout": "bullet_points",
+                            "title": "Key Recommendations",
+                            "elements": [
+                                {
+                                    "type": "title",
+                                    "text": "Key Recommendations",
+                                    "x": 100,
+                                    "y": 80,
+                                    "w": 1400,
+                                    "h": 100,
+                                    "fontSize": 44,
+                                    "fill": "#1e293b"
+                                },
+                                {
+                                    "type": "bullets",
+                                    "items": [
+                                        "Improve completeness of critical columns by imputation.",
+                                        "Track anomalies in key financial metrics.",
+                                        "Establish standard pipelines for data ingestion."
+                                    ],
+                                    "x": 100,
+                                    "y": 220,
+                                    "w": 1400,
+                                    "h": 500,
+                                    "fontSize": 26,
+                                    "fill": "#475569"
+                                }
+                            ]
+                        }
+                    ]
+                    
+                    # Append visual analysis slides for each selected chart
+                    for idx, chart in enumerate(selected_charts):
+                        fallback_slides.append({
+                            "id": f"slide_chart_{idx}",
+                            "editable": True,
+                            "layout": "visual_analysis",
+                            "title": chart.title,
+                            "elements": [
+                                {
+                                    "type": "title",
+                                    "text": chart.title,
+                                    "x": 100,
+                                    "y": 80,
+                                    "w": 1400,
+                                    "h": 100,
+                                    "fontSize": 44,
+                                    "fill": "#1e293b"
+                                },
+                                {
+                                    "type": "text",
+                                    "text": f"Analysis Purpose:\n{chart.caption}\n\nThis visual highlights the key distribution and patterns identified in the dataset.",
+                                    "x": 100,
+                                    "y": 200,
+                                    "w": 500,
+                                    "h": 550,
+                                    "fontSize": 24,
+                                    "fill": "#334155"
+                                },
+                                {
+                                    "type": "image",
+                                    "src": chart.key,
+                                    "x": 650,
+                                    "y": 200,
+                                    "w": 850,
+                                    "h": 550
+                                }
+                            ]
+                        })
+                        
+                    st.session_state.presentation_state = {"slides": fallback_slides}
                     st.success("Default presentation template loaded! Review and edit the slides below.")
 
     with col_btn_pdf:
@@ -2124,6 +2233,21 @@ def render_report(df, charts, profile, quality_report):
         
         state = st.session_state.presentation_state
         
+        # Preprocess slides state to convert chart keys to base64 images
+        import copy
+        processed_state = copy.deepcopy(state)
+        charts_lookup = {chart.key: chart for chart in charts}
+        
+        for slide in processed_state.get("slides", []):
+            for elem in slide.get("elements", []):
+                if elem.get("type") == "image":
+                    src = elem.get("src", "")
+                    if src in charts_lookup:
+                        chart_spec = charts_lookup[src]
+                        if chart_spec.path and os.path.exists(chart_spec.path):
+                            elem["chart_key"] = src
+                            elem["src"] = get_image_base64(chart_spec.path)
+        
         try:
             import sys
             import os
@@ -2133,10 +2257,30 @@ def render_report(df, charts, profile, quality_report):
             from components.ppt_editor import st_ppt_editor
             
             # The component returns the updated state whenever the canvas changes
-            updated_state = st_ppt_editor(state, key="ppt_editor_component")
+            updated_state = st_ppt_editor(processed_state, key="ppt_editor_component")
             if updated_state and isinstance(updated_state, dict) and "slides" in updated_state:
+                # We update back, restoring chart_key if it's there
                 st.session_state.presentation_state = updated_state
                 state = updated_state
+                
+                # Check for actions sent by header buttons in React
+                action = updated_state.get("action")
+                if action == "download":
+                    # Clear action to prevent trigger loop
+                    st.session_state.presentation_state["action"] = None
+                    prs = PresentationService()
+                    output_name = safe_filename(StateManager.get_file_name() or "AI_Report")
+                    report_path = prs.create_report_from_state(
+                        presentation_state=updated_state,
+                        output_path=f"outputs/{output_name}.pptx"
+                    )
+                    st.session_state.report_path = report_path
+                    st.success("Custom PPT built successfully! Click download below.")
+                    st.rerun()
+                elif action == "save":
+                    st.session_state.presentation_state["action"] = None
+                    st.success("Canvas presentation state saved successfully.")
+                    st.rerun()
         except Exception as e:
             st.error(f"Failed to load Interactive Editor Component: {e}")
             st.info("Ensure you have run `npm install` and `npm run build` in the `components/ppt_editor` directory.")
@@ -2150,10 +2294,8 @@ def render_report(df, charts, profile, quality_report):
                 output_path=f"outputs/{output_name}.pptx"
             )
             st.session_state.report_path = report_path
-            st.success("Custom PPT built successfully! Check the download button below.")
-
-    col_dl_ppt, col_dl_pdf = st.columns(2)
-    with col_dl_ppt:
+            st.success("Custom PPT built successfully!")
+            
         report_path = st.session_state.get("report_path")
         if report_path and os.path.exists(report_path):
             with open(report_path, "rb") as report_file:
@@ -2165,16 +2307,15 @@ def render_report(df, charts, profile, quality_report):
                     type="primary"
                 )
     
-    with col_dl_pdf:
-        pdf_report_path = st.session_state.get("pdf_report_path")
-        if pdf_report_path and os.path.exists(pdf_report_path):
-            with open(pdf_report_path, "rb") as pdf_file:
-                st.download_button(
-                    "⬇️ Download Final PDF",
-                    data=pdf_file,
-                    file_name=os.path.basename(pdf_report_path),
-                    use_container_width=True,
-                )
+    pdf_report_path = st.session_state.get("pdf_report_path")
+    if pdf_report_path and os.path.exists(pdf_report_path):
+        with open(pdf_report_path, "rb") as pdf_file:
+            st.download_button(
+                "⬇️ Download Final PDF",
+                data=pdf_file,
+                file_name=os.path.basename(pdf_report_path),
+                use_container_width=True,
+            )
 
 
 df = StateManager.get_dataframe()
@@ -2201,7 +2342,7 @@ with action_right:
     st.caption(f"Active dataset: {file_name}")
 
 overview_tab, visual_tab, ai_tab, report_tab = st.tabs(
-    ["Overview", "Visual Lab", "AI Workspace", "Report"]
+    ["🔍 Overview", "📊 Visual Lab", "💬 AI Workspace", "📝 Report Builder"]
 )
 
 with overview_tab:
