@@ -36,6 +36,10 @@ const PptEditor = ({ args }: ComponentProps) => {
   // Collapsible sidebars state
   const [isLeftBarOpen, setIsLeftBarOpen] = useState(true);
   const [isRightBarOpen, setIsRightBarOpen] = useState(true);
+  
+  // Transparency slider state
+  const [showTransparencySlider, setShowTransparencySlider] = useState(false);
+  const [currentOpacityVal, setCurrentOpacityVal] = useState(100);
 
   // Undo/Redo element history stacks
   const [undoStack, setUndoStack] = useState<any[]>([]);
@@ -887,34 +891,36 @@ const PptEditor = ({ args }: ComponentProps) => {
   };
 
   const handleToggleTransparency = () => {
+    setShowTransparencySlider(!showTransparencySlider);
+    
+    if (!showTransparencySlider && canvas) {
+      const activeObj = canvas.getActiveObject();
+      if (activeObj) {
+        setCurrentOpacityVal(Math.round((activeObj.opacity ?? 1.0) * 100));
+      } else {
+        const bgObjects = canvas.getObjects().filter(obj => (obj as any).isBackground);
+        if (bgObjects.length > 0) {
+          setCurrentOpacityVal(Math.round((bgObjects[0].opacity ?? 1.0) * 100));
+        }
+      }
+    }
+  };
+
+  const handleOpacityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = parseInt(e.target.value, 10);
+    setCurrentOpacityVal(val);
+    const nextOpacity = val / 100.0;
+    
     if (!canvas) return;
     const activeObj = canvas.getActiveObject();
     if (activeObj) {
-      const currentOpacity = activeObj.opacity ?? 1.0;
-      let nextOpacity = 1.0;
-      if (currentOpacity > 0.8) nextOpacity = 0.75;
-      else if (currentOpacity > 0.6) nextOpacity = 0.5;
-      else if (currentOpacity > 0.3) nextOpacity = 0.25;
-      else if (currentOpacity > 0.15) nextOpacity = 0.1;
-      else nextOpacity = 1.0;
-
       activeObj.set('opacity', nextOpacity);
       canvas.renderAll();
       saveCanvasToState(canvas, activeSlideIdxRef.current);
       setSelectedObj({ ...selectedObj, opacity: nextOpacity } as any);
     } else {
-      // If no element is selected, let's change the transparency of all background shapes!
       const bgObjects = canvas.getObjects().filter(obj => (obj as any).isBackground);
       if (bgObjects.length > 0) {
-        const firstBg = bgObjects[0];
-        const currentOpacity = firstBg.opacity ?? 1.0;
-        let nextOpacity = 1.0;
-        if (currentOpacity > 0.8) nextOpacity = 0.75;
-        else if (currentOpacity > 0.6) nextOpacity = 0.5;
-        else if (currentOpacity > 0.3) nextOpacity = 0.25;
-        else if (currentOpacity > 0.15) nextOpacity = 0.1;
-        else nextOpacity = 1.0;
-
         bgObjects.forEach(obj => obj.set('opacity', nextOpacity));
         canvas.renderAll();
         saveCanvasToState(canvas, activeSlideIdxRef.current);
@@ -991,19 +997,39 @@ const PptEditor = ({ args }: ComponentProps) => {
         <div className="flex items-center space-x-4">
 
           {/* Main Action Buttons */}
-          <div className="flex items-center space-x-2.5">
+          <div className="flex items-center space-x-6">
             <button
               onClick={handleTemplateReplacement}
               className="px-4 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 flex items-center text-xs font-semibold transition-all border border-indigo-500/30 shadow-sm"
             >
               <Share2 className="w-3.5 h-3.5 mr-1.5" /> Template replacement
             </button>
-            <button
-              onClick={handleToggleTransparency}
-              className="px-4 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 flex items-center text-xs font-semibold transition-all border border-indigo-500/30 shadow-sm"
-            >
-              <Layers className="w-3.5 h-3.5 mr-1.5" /> Colour transparency
-            </button>
+
+            <div className="relative flex items-center">
+              <button
+                onClick={handleToggleTransparency}
+                className="px-4 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 flex items-center text-xs font-semibold transition-all border border-indigo-500/30 shadow-sm"
+              >
+                <Layers className="w-3.5 h-3.5 mr-1.5" /> Colour transparency
+              </button>
+              
+              {showTransparencySlider && (
+                <div className="absolute top-full mt-2 left-0 w-48 bg-[#1e1b4b] border border-indigo-500/30 p-3 rounded-lg shadow-xl z-50 flex flex-col space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-indigo-300 font-semibold">Opacity</span>
+                    <span className="text-xs text-indigo-300">{currentOpacityVal}%</span>
+                  </div>
+                  <input 
+                    type="range" 
+                    min="0" 
+                    max="100" 
+                    value={currentOpacityVal} 
+                    onChange={handleOpacityChange}
+                    className="w-full h-1 bg-indigo-900 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="w-px h-5 bg-white/10"></div>
