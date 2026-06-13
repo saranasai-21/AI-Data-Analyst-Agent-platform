@@ -2097,8 +2097,19 @@ def render_report(df, charts, profile, quality_report):
                 try:
                     if not GEMINI_API_KEY:
                         raise ValueError("No Gemini API key configured")
-                    json_str = generate_text(GEMINI_API_KEY, prompt, max_output_tokens=4096)
-                    clean_str = re.sub(r'```(?:json)?\n?(.*?)\n?```', r'\1', json_str.strip(), flags=re.DOTALL)
+                    json_str = generate_text(GEMINI_API_KEY, prompt, max_output_tokens=4096, response_mime_type="application/json")
+                    clean_str = json_str.strip()
+                    # Safe markdown block stripper
+                    if "```" in clean_str:
+                        match = re.search(r'```(?:json)?\s*\n?(.*?)\n?\s*```', clean_str, re.DOTALL | re.IGNORECASE)
+                        if match:
+                            clean_str = match.group(1).strip()
+                    # Braces fallback selector
+                    if not (clean_str.startswith("{") and clean_str.endswith("}")):
+                        first_brace = clean_str.find('{')
+                        last_brace = clean_str.rfind('}')
+                        if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
+                            clean_str = clean_str[first_brace:last_brace + 1].strip()
                     st.session_state.presentation_state = json.loads(clean_str)
                     st.success("Presentation generated! Review and edit the slides below.")
                 except Exception as e:

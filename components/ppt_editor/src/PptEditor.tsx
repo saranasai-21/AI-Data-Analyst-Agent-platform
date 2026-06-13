@@ -353,13 +353,15 @@ const PptEditor = ({ args }: ComponentProps) => {
           width: w,
           height: h,
           fill: elem.fill || '#e2e8f0',
-          stroke: '#cbd5e1',
-          strokeWidth: 2,
-          rx: 8,
-          ry: 8,
-          selectable: !isLocked,
-          evented: !isLocked
+          stroke: elem.isBackground ? undefined : '#cbd5e1',
+          strokeWidth: elem.isBackground ? 0 : 2,
+          rx: elem.isBackground ? 0 : 8,
+          ry: elem.isBackground ? 0 : 8,
+          selectable: !elem.isBackground && !isLocked,
+          evented: !elem.isBackground && !isLocked,
+          hoverCursor: elem.isBackground ? 'default' : undefined
         });
+        (fObj as any).isBackground = elem.isBackground || false;
       } else {
         fObj = new fabric.Textbox(elem.text || elem.content || '', {
           left: x,
@@ -376,8 +378,12 @@ const PptEditor = ({ args }: ComponentProps) => {
 
       if (fObj) {
         (fObj as any).elementType = elem.type || 'text';
+        fObj.set('opacity', elem.opacity !== undefined ? elem.opacity : 1.0);
         fObj.setControlsVisibility({ mtr: !isLocked });
         canvas.add(fObj);
+        if ((fObj as any).isBackground) {
+          canvas.sendToBack(fObj);
+        }
       }
     });
     canvas.renderAll();
@@ -391,6 +397,7 @@ const PptEditor = ({ args }: ComponentProps) => {
       const y = Math.round(obj.top || 0);
       const w = Math.round(obj.width ? obj.width * (obj.scaleX || 1) : 0);
       const h = Math.round(obj.height ? obj.height * (obj.scaleY || 1) : 0);
+      const opacity = obj.opacity ?? 1.0;
 
       if (type === 'title') {
         const textObj = obj as fabric.Textbox;
@@ -399,7 +406,8 @@ const PptEditor = ({ args }: ComponentProps) => {
           content: textObj.text,
           x, y, w, h,
           fontSize: textObj.fontSize,
-          fill: textObj.fill
+          fill: textObj.fill,
+          opacity
         };
       } else if (type === 'text') {
         const textObj = obj as fabric.Textbox;
@@ -408,7 +416,8 @@ const PptEditor = ({ args }: ComponentProps) => {
           content: textObj.text,
           x, y, w, h,
           fontSize: textObj.fontSize,
-          fill: textObj.fill
+          fill: textObj.fill,
+          opacity
         };
       } else if (type === 'bullets') {
         const textObj = obj as fabric.Textbox;
@@ -418,7 +427,8 @@ const PptEditor = ({ args }: ComponentProps) => {
           items: items,
           x, y, w, h,
           fontSize: textObj.fontSize,
-          fill: textObj.fill
+          fill: textObj.fill,
+          opacity
         };
       } else if (type === 'image') {
         const imgObj = obj as any;
@@ -426,34 +436,40 @@ const PptEditor = ({ args }: ComponentProps) => {
           type: 'image',
           src: imgObj.src || '',
           chart_key: imgObj.chartKey || '',
-          x, y, w, h
+          x, y, w, h,
+          opacity
         };
       } else if (type === 'chart') {
         const chartObj = obj as any;
         return {
           type: 'chart',
           chart_data: chartObj.chartData || {},
-          x, y, w, h
+          x, y, w, h,
+          opacity
         };
       } else if (type === 'table') {
         const tableObj = obj as any;
         return {
           type: 'table',
           table_data: tableObj.tableData || {},
-          x, y, w, h
+          x, y, w, h,
+          opacity
         };
       } else if (type === 'shape') {
         const shapeObj = obj as fabric.Rect;
         return {
           type: 'shape',
           x, y, w, h,
-          fill: shapeObj.fill
+          fill: shapeObj.fill,
+          isBackground: (shapeObj as any).isBackground || false,
+          opacity
         };
       }
       return {
         type: 'text',
         content: (obj as any).text || '',
-        x, y, w, h
+        x, y, w, h,
+        opacity
       };
     });
   };
@@ -795,6 +811,117 @@ const PptEditor = ({ args }: ComponentProps) => {
     }
   };
 
+  const BG_COLORS = [
+    '#0f294a', '#1e293b', '#311b92', '#004d40', '#4a148c',
+    '#880e4f', '#0f172a', '#1e1b4b', '#111827', '#022c22',
+    '#3b0764', '#450a0a', '#172554', '#1e3a8a', '#134e4a'
+  ];
+
+  const handleTemplateReplacement = () => {
+    if (!canvas) return;
+
+    // Remove existing background elements
+    const existingBg = canvas.getObjects().filter(obj => (obj as any).isBackground);
+    existingBg.forEach(obj => canvas.remove(obj));
+
+    const numColors = Math.floor(Math.random() * 3) + 1; // 1, 2, or 3
+    const isVertical = Math.random() > 0.5;
+
+    // Select random unique colors from BG_COLORS
+    const colors: string[] = [];
+    const availableColors = [...BG_COLORS];
+    for (let i = 0; i < numColors; i++) {
+      const idx = Math.floor(Math.random() * availableColors.length);
+      colors.push(availableColors.splice(idx, 1)[0]);
+    }
+
+    if (numColors === 1) {
+      const bg = new fabric.Rect({
+        left: 0,
+        top: 0,
+        width: SLIDE_WIDTH,
+        height: SLIDE_HEIGHT,
+        fill: colors[0],
+        selectable: false,
+        evented: false,
+        hoverCursor: 'default'
+      });
+      (bg as any).elementType = 'shape';
+      (bg as any).isBackground = true;
+      canvas.add(bg);
+      canvas.sendToBack(bg);
+    } else {
+      for (let i = 0; i < numColors; i++) {
+        let left = 0;
+        let top = 0;
+        let width = SLIDE_WIDTH;
+        let height = SLIDE_HEIGHT;
+
+        if (isVertical) {
+          width = SLIDE_WIDTH / numColors;
+          left = i * width;
+        } else {
+          height = SLIDE_HEIGHT / numColors;
+          top = i * height;
+        }
+
+        const bg = new fabric.Rect({
+          left,
+          top,
+          width,
+          height,
+          fill: colors[i],
+          selectable: false,
+          evented: false,
+          hoverCursor: 'default'
+        });
+        (bg as any).elementType = 'shape';
+        (bg as any).isBackground = true;
+        canvas.add(bg);
+        canvas.sendToBack(bg);
+      }
+    }
+
+    canvas.renderAll();
+    saveCanvasToState(canvas, activeSlideIdxRef.current);
+  };
+
+  const handleToggleTransparency = () => {
+    if (!canvas) return;
+    const activeObj = canvas.getActiveObject();
+    if (activeObj) {
+      const currentOpacity = activeObj.opacity ?? 1.0;
+      let nextOpacity = 1.0;
+      if (currentOpacity > 0.8) nextOpacity = 0.75;
+      else if (currentOpacity > 0.6) nextOpacity = 0.5;
+      else if (currentOpacity > 0.3) nextOpacity = 0.25;
+      else if (currentOpacity > 0.15) nextOpacity = 0.1;
+      else nextOpacity = 1.0;
+
+      activeObj.set('opacity', nextOpacity);
+      canvas.renderAll();
+      saveCanvasToState(canvas, activeSlideIdxRef.current);
+      setSelectedObj({ ...selectedObj, opacity: nextOpacity } as any);
+    } else {
+      // If no element is selected, let's change the transparency of all background shapes!
+      const bgObjects = canvas.getObjects().filter(obj => (obj as any).isBackground);
+      if (bgObjects.length > 0) {
+        const firstBg = bgObjects[0];
+        const currentOpacity = firstBg.opacity ?? 1.0;
+        let nextOpacity = 1.0;
+        if (currentOpacity > 0.8) nextOpacity = 0.75;
+        else if (currentOpacity > 0.6) nextOpacity = 0.5;
+        else if (currentOpacity > 0.3) nextOpacity = 0.25;
+        else if (currentOpacity > 0.15) nextOpacity = 0.1;
+        else nextOpacity = 1.0;
+
+        bgObjects.forEach(obj => obj.set('opacity', nextOpacity));
+        canvas.renderAll();
+        saveCanvasToState(canvas, activeSlideIdxRef.current);
+      }
+    }
+  };
+
   const renderMiniPreview = (slide: any) => {
     const isDark = slide.layout === 'title_slide' || slide.layout === 'conclusion_slide';
     const elements = slide.elements || [];
@@ -866,16 +993,16 @@ const PptEditor = ({ args }: ComponentProps) => {
           {/* Main Action Buttons */}
           <div className="flex items-center space-x-2.5">
             <button
-              onClick={() => handleHeaderAction('template')}
-              className="px-4 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 flex items-center text-xs font-semibold transition-all border border-indigo-500/30"
+              onClick={handleTemplateReplacement}
+              className="px-4 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 flex items-center text-xs font-semibold transition-all border border-indigo-500/30 shadow-sm"
             >
               <Share2 className="w-3.5 h-3.5 mr-1.5" /> Template replacement
             </button>
             <button
-              onClick={() => handleHeaderAction('save')}
-              className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white flex items-center text-xs font-semibold transition-all border border-indigo-500/30 shadow-md hover:shadow-indigo-500/20"
+              onClick={handleToggleTransparency}
+              className="px-4 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 flex items-center text-xs font-semibold transition-all border border-indigo-500/30 shadow-sm"
             >
-              <Save className="w-3.5 h-3.5 mr-1.5" /> Save
+              <Layers className="w-3.5 h-3.5 mr-1.5" /> Colour transparency
             </button>
           </div>
 
@@ -915,18 +1042,6 @@ const PptEditor = ({ args }: ComponentProps) => {
             >
               <BarChart3 className="w-4 h-4" />
             </button>
-          </div>
-
-          <div className="w-px h-5 bg-white/10"></div>
-
-          {/* Selector & Zoom */}
-          <div className="flex items-center space-x-2">
-            <span className="text-xs text-zinc-500 font-bold px-2.5 py-1 bg-white/[0.03] border border-white/[0.06] rounded-lg">Edit</span>
-            <div className="flex items-center bg-white/[0.03] border border-white/[0.06] rounded-lg p-0.5">
-              <button onClick={() => handleZoom('out')} className="p-1 hover:bg-white/[0.06] rounded-md text-zinc-400 hover:text-white"><ZoomOut className="w-3.5 h-3.5" /></button>
-              <span className="text-[11px] font-mono font-bold w-12 text-center text-zinc-300">{Math.round(scale * 100)}%</span>
-              <button onClick={() => handleZoom('in')} className="p-1 hover:bg-white/[0.06] rounded-md text-zinc-400 hover:text-white"><ZoomIn className="w-3.5 h-3.5" /></button>
-            </div>
           </div>
 
         </div>
@@ -1080,6 +1195,28 @@ const PptEditor = ({ args }: ComponentProps) => {
                       className="bg-transparent border-0 w-full text-xs text-zinc-200 focus:outline-none p-0 ml-1 font-mono"
                     />
                   </div>
+                </div>
+              </div>
+
+              {/* Opacity Option */}
+              <div>
+                <label className="text-[9px] font-bold text-zinc-400 block mb-1.5 uppercase tracking-wider">Opacity / Transparency</label>
+                <div className="flex items-center space-x-3 bg-[#0c0c0d] border border-white/10 rounded-lg p-2">
+                  <input
+                    type="range"
+                    min="10"
+                    max="100"
+                    value={Math.round((selectedObj.opacity ?? 1) * 100)}
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value) / 100;
+                      selectedObj.set('opacity', val);
+                      canvas?.renderAll();
+                      saveCanvasToState(canvas!, activeSlideIdxRef.current);
+                      setSelectedObj({ ...selectedObj, opacity: val } as any);
+                    }}
+                    className="w-full h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                  />
+                  <span className="text-xs font-mono text-zinc-300 w-10 text-right">{Math.round((selectedObj.opacity ?? 1) * 100)}%</span>
                 </div>
               </div>
 

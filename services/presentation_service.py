@@ -313,7 +313,8 @@ class PresentationService:
                     p.font.bold = True
                     p.font.color.rgb = RGBColor(255, 255, 255)
                 elif elem_type == "shape":
-                    card = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left_in, top_in, width_in, height_in)
+                    shape_type = MSO_SHAPE.RECTANGLE if elem.get("isBackground") else MSO_SHAPE.ROUNDED_RECTANGLE
+                    card = slide.shapes.add_shape(shape_type, left_in, top_in, width_in, height_in)
                     card.fill.solid()
                     color_hex = elem.get("fill", "#8b5cf6")
                     if color_hex.startswith("#"):
@@ -326,6 +327,20 @@ class PresentationService:
                         except Exception:
                             card.fill.fore_color.rgb = RGBColor(139, 92, 246)
                     card.line.fill.background()
+                    
+                    # Apply transparency/opacity if present
+                    opacity = elem.get("opacity")
+                    if opacity is not None:
+                        try:
+                            opacity_val = int(float(opacity) * 100000)
+                            srgbClr = card.fill._fill.srgbClr
+                            if srgbClr is not None:
+                                from pptx.oxml.xmlchemy import OxmlElement
+                                alpha = OxmlElement('a:alpha')
+                                alpha.set('val', str(opacity_val))
+                                srgbClr.append(alpha)
+                        except Exception:
+                            pass
                     
                 elif elem_type == "table":
                     table_data = elem.get("table_data", {})
