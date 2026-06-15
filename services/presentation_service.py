@@ -53,15 +53,17 @@ class PresentationService:
         if chart_items:
             self._add_visualization_slides(prs, chart_items)
 
-        if self._is_valid_content(insights):
-            final_ins_title = insights_title if insights_title.startswith("💡") else f"💡 {insights_title}"
-            self._add_text_slides(prs, final_ins_title, insights)
-
         if self._is_valid_content(recommendations):
             final_rec_title = recs_title if recs_title.startswith("🎯") else f"🎯 {recs_title}"
             self._add_text_slides(prs, final_rec_title, recommendations)
 
+        if self._is_valid_content(insights):
+            final_ins_title = insights_title if insights_title.startswith("💡") else f"💡 {insights_title}"
+            self._add_text_slides(prs, final_ins_title, insights)
+
         self._add_conclusion_slide(prs)
+        self._add_future_scopes_slide(prs)
+        self._add_thank_you_slide(prs)
 
         self._remove_empty_slides(prs)
         prs.save(output_path)
@@ -659,7 +661,7 @@ class PresentationService:
         usable_height_pt = (height_in * 72) - 25
 
         font_size = initial_font_size
-        while font_size >= 9.5:
+        while font_size >= 8.0:
             total_height_pt = 0
             # Times New Roman average character width is around 0.40 * font_size
             chars_per_line = int((usable_width_in * 72) / (0.40 * font_size))
@@ -676,26 +678,8 @@ class PresentationService:
                 return font_size, lines
             font_size -= 0.5
             
-        font_size = 9.5
-        chars_per_line = int((usable_width_in * 72) / (0.40 * font_size))
-        if chars_per_line <= 0:
-            chars_per_line = 1
-        fitted_lines = []
-        total_height_pt = 0
-        for line in lines:
-            clean_line = re.sub(r"\*\*(.*?)\*\*", r"\1", line)
-            clean_line = re.sub(r"^#+\s*", "", clean_line)
-            length = len(clean_line)
-            visual_lines = max(1, (length + chars_per_line - 1) // chars_per_line)
-            para_height = visual_lines * (font_size * 1.3) + space_after_pt
-            if total_height_pt + para_height <= usable_height_pt:
-                total_height_pt += para_height
-                fitted_lines.append(line)
-            else:
-                break
-        if not fitted_lines and lines:
-            fitted_lines = [lines[0]]
-        return font_size, fitted_lines
+        font_size = 8.0
+        return font_size, lines
 
     def _add_textbox_column(self, slide, lines, left, top, width, height, computed_font_size, space_after):
         # Prevent boundary crossing
@@ -1419,10 +1403,10 @@ class PresentationService:
             # Draw a beautiful card shape behind the chart
             card = slide.shapes.add_shape(
                 MSO_SHAPE.ROUNDED_RECTANGLE,
-                Inches(1.5),
-                Inches(1.35),
-                Inches(10.33),
-                Inches(5.45)
+                Inches(0.65),
+                Inches(1.15),
+                Inches(12.03),
+                Inches(5.65)
             )
             card.fill.solid()
             card.fill.fore_color.rgb = RGBColor(19, 37, 71) # Dark card fill
@@ -1432,18 +1416,18 @@ class PresentationService:
             try:
                 slide.shapes.add_picture(
                     path,
-                    Inches(2.16),
-                    Inches(1.55),
-                    width=Inches(9.0),
-                    height=Inches(4.15),
+                    Inches(1.16),
+                    Inches(1.35),
+                    width=Inches(11.01),
+                    height=Inches(4.55),
                 )
             except Exception:
                 continue
 
             cap = slide.shapes.add_textbox(
-                Inches(1.8),
-                Inches(5.8),
-                Inches(9.73),
+                Inches(1.0),
+                Inches(5.85),
+                Inches(11.33),
                 Inches(0.8),
             )
             frame = cap.text_frame
@@ -1611,11 +1595,63 @@ class PresentationService:
         p4.text = "🚀 Use these findings to drive strategic business decisions and optimize your processes."
         p4.font.name = "Times New Roman"
         p4.font.size = Pt(19)
-        p4.font.bold = True
-        p4.font.color.rgb = RGBColor(13, 148, 136) # Teal
         p4.space_before = Pt(16)
 
-    def _split_section_into_chunks(self, lines, max_chars=800):
+    def _add_future_scopes_slide(self, prs):
+        slide = self._blank_slide(prs, "🔮 Future Scopes & Scaling")
+        body_lines = [
+            "• Advanced Predictive Modeling: Build machine learning models to forecast future parameter behaviors.",
+            "• Automated Real-Time Ingestion: Transition to streaming pipelines for live data visualization.",
+            "• Segment Expansion: Deepen demographic classifications to target new customer pools.",
+            "• Proactive Anomaly Detection: Setup real-time notifications for metric deviancies."
+        ]
+        self._add_body_lines(slide, body_lines, top=1.22)
+
+    def _add_thank_you_slide(self, prs):
+        slide = prs.slides.add_slide(prs.slide_layouts[6])
+        background = slide.background.fill
+        background.solid()
+        background.fore_color.rgb = RGBColor(15, 41, 74) # Deep Navy background
+
+        # Add a beautiful glowing accent bar in the center
+        accent_bar = slide.shapes.add_shape(
+            MSO_SHAPE.RECTANGLE,
+            Inches(5.166),
+            Inches(2.5),
+            Inches(3.0),
+            Inches(0.08),
+        )
+        accent_bar.fill.solid()
+        accent_bar.fill.fore_color.rgb = RGBColor(45, 212, 191) # Glowing Teal accent
+        accent_bar.line.fill.background()
+
+        # Thank you text box
+        tb = slide.shapes.add_textbox(Inches(2.0), Inches(2.8), Inches(9.333), Inches(1.5))
+        tf = tb.text_frame
+        tf.word_wrap = True
+        tf.clear()
+        p = tf.paragraphs[0]
+        p.text = "Thank You!"
+        p.font.name = "Times New Roman"
+        p.font.size = Pt(64)
+        p.font.bold = True
+        p.font.color.rgb = RGBColor(255, 255, 255)
+        p.alignment = PP_ALIGN.CENTER
+
+        # Subtext box
+        tb_sub = slide.shapes.add_textbox(Inches(2.0), Inches(4.5), Inches(9.333), Inches(1.0))
+        tf_sub = tb_sub.text_frame
+        tf_sub.word_wrap = True
+        tf_sub.clear()
+        p_sub = tf_sub.paragraphs[0]
+        p_sub.text = "Questions & Discussion | AI Data Analyst Agent Platform"
+        p_sub.font.name = "Times New Roman"
+        p_sub.font.size = Pt(20)
+        p_sub.font.italic = True
+        p_sub.font.color.rgb = RGBColor(148, 163, 184) # Slate 400
+        p_sub.alignment = PP_ALIGN.CENTER
+
+    def _split_section_into_chunks(self, lines, max_chars=550):
         """
         Split a section into multiple slides only if it becomes too large.
         Keeps headings together.

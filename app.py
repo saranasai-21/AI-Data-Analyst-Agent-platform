@@ -979,6 +979,7 @@ def style_chart(fig):
         plot_bgcolor=PANEL,
         margin=dict(l=58, r=30, t=58, b=58),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+        height=600,
     )
     fig.update_xaxes(color=INK, gridcolor=BORDER, zerolinecolor=BORDER, linecolor=BORDER)
     fig.update_yaxes(color=INK, gridcolor=BORDER, zerolinecolor=BORDER, linecolor=BORDER)
@@ -988,7 +989,7 @@ def style_chart(fig):
 def save_chart(fig, path):
     try:
         style_chart(fig)
-        fig.write_image(path, width=1100, height=620, scale=1)
+        fig.write_image(path, width=1200, height=675, scale=1)
         return path
     except Exception as exc:
         if not st.session_state.get("chart_export_warning"):
@@ -1417,6 +1418,20 @@ def local_report_inputs(df):
     return ProfilingAgent().run(chart_df), DataQualityAgent().run(chart_df)
 
 
+def get_cached_report_inputs(df):
+    cache_key = dataframe_fingerprint(df)
+    if (
+        st.session_state.get("report_inputs_cache_key") == cache_key
+        and st.session_state.get("report_inputs_cache")
+    ):
+        return st.session_state.report_inputs_cache
+    profile, quality_report = local_report_inputs(df)
+    st.session_state.report_inputs_cache_key = cache_key
+    st.session_state.report_inputs_cache = (profile, quality_report)
+    return profile, quality_report
+
+
+
 def run_agent_workflow(query, df):
     conv = StateManager.get_conversation()
     cache_key = (
@@ -1634,67 +1649,94 @@ def render_upload():
 
     with left:
         st.markdown('<div class="section-label">Dataset Intake</div>', unsafe_allow_html=True)
-        uploaded_file = st.file_uploader(
-            "Dataset file",
+        uploaded_files = st.file_uploader(
+            "Dataset file(s)",
             type=("csv", "xlsx", "xls", "json", "db", "sqlite", "sqlite3", "pdf"),
-            help="CSV, Excel, JSON, SQLite, and PDF files are supported.",
+            help="CSV, Excel, JSON, SQLite, and PDF files are supported. You can upload multiple files to analyze them.",
+            accept_multiple_files=True,
         )
 
-        query = None
-        source_type = None
+        if uploaded_files:
+            file_names = [f.name for f in uploaded_files]
+            st.info(f"Selected files: {', '.join(file_names)}")
 
-        if uploaded_file is not None:
-            source_type = uploaded_source(uploaded_file)
-            st.info(f"Detected source: {source_type}")
+            # If SQLite database is present, ask for database query
+            sqlite_files = [f for f in uploaded_files if uploaded_source(f) == "SQLite"]
+            query = None
+            if sqlite_files:
+                query = st.text_area("SQL Query (for SQLite databases)", "SELECT * FROM table_name LIMIT 1000")
 
-            if source_type == "SQLite":
-                query = st.text_area("SQL Query", "SELECT * FROM table_name LIMIT 1000")
+            if st.button("Start Analytics", type="primary", use_container_width=True):
+                dfs = []
+                loaded_sources = []
+                
+                with st.spinner("Processing uploaded files..."):
+                    for u_file in uploaded_files:
+                        s_type = uploaded_source(u_file)
+                        loaded_sources.append(s_type)
+                        try:
+                            if s_type == "SQLite":
+                                tmp_path = None
+                                with tempfile.NamedTemporaryFile(delete=False, suffix=".db") as tmp:
+                                    tmp.write(u_file.read())
+                                    tmp_path = tmp.name
 
-            try:
-                if source_type == "SQLite":
-                    tmp_path = None
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".db") as tmp:
-                        tmp.write(uploaded_file.read())
-                        tmp_path = tmp.name
+                                try:
+                                    df_file = DataLoader.load_sqlite(
+                                        tmp_path,
+                                        query or "SELECT name FROM sqlite_master WHERE type='table';",
+                                    )
+                                    dfs.append(df_file)
+                                finally:
+                                    if tmp_path and os.path.exists(tmp_path):
+                                        os.remove(tmp_path)
+                            elif s_type in ("CSV", "Excel", "JSON"):
+                                df_file = DataLoader.load_file(u_file)
+                                dfs.append(df_file)
+                            elif s_type == "PDF":
+                                from core.gemini_service import parse_pdf_to_csv
+                                from core.config import GEMINI_API_KEY
+                                if not GEMINI_API_KEY:
+                                    raise ValueError("GEMINI_API_KEY is not configured. An API key is required to parse PDF tables.")
+                                csv_text = parse_pdf_to_csv(GEMINI_API_KEY, u_file.read())
+                                import io
+                                df_file = pd.read_csv(io.StringIO(csv_text))
+                                dfs.append(df_file)
+                            else:
+                                raise ValueError(f"Unsupported file type: {u_file.name}")
+                        except Exception as exc:
+                            st.error(f"Failed to load file '{u_file.name}': {exc}")
+                            st.stop()
+                    
+                    if dfs:
+                        try:
+                            if len(dfs) > 1:
+                                df = pd.concat(dfs, ignore_index=True)
+                            else:
+                                df = dfs[0]
 
-                    try:
-                        df = DataLoader.load_sqlite(
-                            tmp_path,
-                            query or "SELECT name FROM sqlite_master WHERE type='table';",
-                        )
-                    finally:
-                        if tmp_path and os.path.exists(tmp_path):
-                            os.remove(tmp_path)
-                elif source_type in ("CSV", "Excel", "JSON"):
-                    df = DataLoader.load_file(uploaded_file)
-                elif source_type == "PDF":
-                    with st.spinner("Extracting tabular dataset from PDF via Gemini..."):
-                        from core.gemini_service import parse_pdf_to_csv
-                        from core.config import GEMINI_API_KEY
-                        if not GEMINI_API_KEY:
-                            raise ValueError("GEMINI_API_KEY is not configured. An API key is required to parse PDF tables.")
-                        csv_text = parse_pdf_to_csv(GEMINI_API_KEY, uploaded_file.read())
-                        import io
-                        df = pd.read_csv(io.StringIO(csv_text))
-                else:
-                    raise ValueError("Unsupported file type.")
+                            combined_filename = "Combined Dataset" if len(uploaded_files) > 1 else uploaded_files[0].name
+                            combined_source = ", ".join(set(loaded_sources))
 
-                StateManager.save_dataframe(
-                    df=df,
-                    file_name=getattr(uploaded_file, "name", "uploaded"),
-                    source=source_type,
-                )
-                StateManager.update_conversation([])
-                st.session_state.latest_result = None
-                st.session_state.selected_chart_keys = []
-                st.session_state.report_path = None
-                st.session_state.chart_cache_key = None
-                st.session_state.chart_cache = []
-                st.session_state.analysis_cache = {}
-                st.success("Dataset loaded.")
-                st.rerun()
-            except Exception as exc:
-                st.error(f"Failed to load dataset: {exc}")
+                            StateManager.save_dataframe(
+                                df=df,
+                                file_name=combined_filename,
+                                source=combined_source,
+                            )
+                            StateManager.update_conversation([])
+                            st.session_state.latest_result = None
+                            st.session_state.selected_chart_keys = []
+                            st.session_state.report_path = None
+                            st.session_state.chart_cache_key = None
+                            st.session_state.chart_cache = []
+                            st.session_state.analysis_cache = {}
+                            st.session_state.report_inputs_cache_key = None
+                            st.session_state.report_inputs_cache = None
+
+                            st.success("Dataset loaded successfully!")
+                            st.rerun()
+                        except Exception as exc:
+                            st.error(f"Failed to load and compile dataset: {exc}")
 
     with right:
         st.markdown('<div class="section-label">AI Analyst System Status</div>', unsafe_allow_html=True)
@@ -2089,7 +2131,12 @@ def render_report(df, charts, profile, quality_report):
                     "- Coordinate space is 1600 width x 900 height.\n"
                     "- 'title_slide': Use type='title' (centered or left, e.g. x:100, y:200, w:1000, h:150) and type='text' for subtitle.\n"
                     "- 'bullet_points': Include a slide title (type='title', x:100, y:80, w:1400, h:100, fontSize: 44) and bullet points (type='bullets', x:100, y:200, w:1400, h:600, fontSize: 28).\n"
-                    "- 'visual_analysis': Include a slide title (type='title'), a descriptive text block (type='text', x:100, y:200, w:500, h:600, fontSize: 24), and an image element displaying the chart (type='image', src='<Chart Key>', x:650, y:200, w:850, h:550).\n"
+                    "- 'visual_analysis': Include a slide title (type='title', x:100, y:80, w:1400, h:100, fontSize: 44), a descriptive text block (type='text', x:50, y:200, w:450, h:600, fontSize: 24), and an image element displaying the chart (type='image', src='<Chart Key>', x:530, y:150, w:1020, h:680).\n"
+                    "- You MUST ALWAYS include the following four slides at the end of the presentation:\n"
+                    "  1. An 'Insights' slide summarizing key analytical insights (layout: 'bullet_points', title: '💡 Key Insights').\n"
+                    "  2. A 'Conclusion or Summary' slide summarizing findings (layout: 'bullet_points', title: '🏁 Conclusion & Summary').\n"
+                    "  3. A 'Future Scopes' slide summarizing future improvements/scaling (layout: 'bullet_points', title: '🔮 Future Scopes & Scaling').\n"
+                    "  4. A 'Thank You' slide to conclude (layout: 'title_slide', title: 'Thank You').\n"
                     f"{selected_charts_info}\n"
                     f"Insights: {insights}\n"
                     f"Recommendations: {recommendations}\n"
@@ -2199,24 +2246,109 @@ def render_report(df, charts, profile, quality_report):
                                 {
                                     "type": "text",
                                     "text": f"Analysis Purpose:\n{chart.caption}\n\nThis visual highlights the key distribution and patterns identified in the dataset.",
-                                    "x": 100,
+                                    "x": 50,
                                     "y": 200,
-                                    "w": 500,
-                                    "h": 550,
+                                    "w": 450,
+                                    "h": 600,
                                     "fontSize": 24,
                                     "fill": "#334155"
                                 },
                                 {
                                     "type": "image",
                                     "src": chart.key,
-                                    "x": 650,
-                                    "y": 200,
-                                    "w": 850,
-                                    "h": 550
+                                    "x": 530,
+                                    "y": 150,
+                                    "w": 1020,
+                                    "h": 680
                                 }
                             ]
                         })
-                        
+                    
+                    # Append the four final slides to the fallback_slides
+                    fallback_slides.append({
+                        "id": "slide_insights",
+                        "editable": True,
+                        "layout": "bullet_points",
+                        "title": "💡 Key Insights",
+                        "elements": [
+                            {
+                                "type": "title",
+                                "text": "💡 Key Insights",
+                                "x": 100, "y": 80, "w": 1400, "h": 100, "fontSize": 44, "fill": "#1e293b"
+                            },
+                            {
+                                "type": "bullets",
+                                "items": [
+                                    "Consistent growth observed across core business segments.",
+                                    "Data quality remains high, ensuring reliable downstream modeling.",
+                                    "Strategic adjustments in marketing channels show strong returns."
+                                ],
+                                "x": 100, "y": 220, "w": 1400, "h": 500, "fontSize": 26, "fill": "#475569"
+                            }
+                        ]
+                    })
+                    fallback_slides.append({
+                        "id": "slide_conclusion",
+                        "editable": True,
+                        "layout": "bullet_points",
+                        "title": "🏁 Conclusion & Summary",
+                        "elements": [
+                            {
+                                "type": "title",
+                                "text": "🏁 Conclusion & Summary",
+                                "x": 100, "y": 80, "w": 1400, "h": 100, "fontSize": 44, "fill": "#1e293b"
+                            },
+                            {
+                                "type": "bullets",
+                                "items": [
+                                    "Key parameters show strong trends indicating healthy operational status.",
+                                    "Immediate mitigation actions will secure secondary performance metrics.",
+                                    "Overall metrics support expansion of the current business initiatives."
+                                ],
+                                "x": 100, "y": 220, "w": 1400, "h": 500, "fontSize": 26, "fill": "#475569"
+                            }
+                        ]
+                    })
+                    fallback_slides.append({
+                        "id": "slide_future_scopes",
+                        "editable": True,
+                        "layout": "bullet_points",
+                        "title": "🔮 Future Scopes & Scaling",
+                        "elements": [
+                            {
+                                "type": "title",
+                                "text": "🔮 Future Scopes & Scaling",
+                                "x": 100, "y": 80, "w": 1400, "h": 100, "fontSize": 44, "fill": "#1e293b"
+                            },
+                            {
+                                "type": "bullets",
+                                "items": [
+                                    "Advanced Predictive Modeling: Build machine learning models to forecast future parameter behaviors.",
+                                    "Automated Real-Time Ingestion: Transition to streaming pipelines for live data visualization.",
+                                    "Segment Expansion: Deepen demographic classifications to target new customer pools."
+                                ],
+                                "x": 100, "y": 220, "w": 1400, "h": 500, "fontSize": 26, "fill": "#475569"
+                            }
+                        ]
+                    })
+                    fallback_slides.append({
+                        "id": "slide_thank_you",
+                        "editable": True,
+                        "layout": "title_slide",
+                        "title": "Thank You",
+                        "elements": [
+                            {
+                                "type": "title",
+                                "text": "Thank You!",
+                                "x": 300, "y": 300, "w": 1000, "h": 150, "fontSize": 64, "fill": "#1e293b"
+                            },
+                            {
+                                "type": "text",
+                                "text": "Questions & Discussion | AI Data Analyst Agent Platform",
+                                "x": 300, "y": 480, "w": 1000, "h": 100, "fontSize": 24, "fill": "#64748b"
+                            }
+                        ]
+                    })
                     st.session_state.presentation_state = {"slides": fallback_slides}
                     st.success("Default presentation template loaded! Review and edit the slides below.")
 
@@ -2337,7 +2469,7 @@ if df is None:
 
 df = working_dataframe(df)
 with st.spinner("Analyzing dataset, assessing data quality, and building visual catalog..."):
-    profile, quality_report = local_report_inputs(df)
+    profile, quality_report = get_cached_report_inputs(df)
     column_summary = build_column_summary(df)
     charts = get_cached_chart_catalog(df)
 

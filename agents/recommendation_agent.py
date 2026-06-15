@@ -34,22 +34,9 @@ Write SPECIFIC, ACTIONABLE recommendations based ONLY on the actual data and ins
 CRITICAL: Do NOT include any formal greetings, conversational openings (like "Good morning", "Hello everyone"), or pleasantries. Start immediately with the required sections.
 
 
-Structure your response with these exact sections using markdown:
-
-**Strategic Recommendations:**
-- Write 3-4 concrete strategic actions with specific measurable targets based on the data.
-
-**Immediate Actions (This Week):**
-- List 3-4 quick wins that can be acted on immediately from the data findings.
-
-**Business Improvements:**
-- Identify 3-4 process or operational improvements supported by the data.
-
-**Growth Opportunities:**
-- List 3-4 specific growth vectors evidenced in the dataset.
-
-**Risk Mitigation:**
-- List 3-4 specific risks with concrete mitigation steps derived from the data.
+Structure your response with 2-4 relevant recommendations sections using markdown.
+The section titles must be dynamic, context-aware, and directly related to the User Question, Analysis Output, and Analyst Insights (e.g., if the query is about revenue optimization, sections should be about 'Pricing Action Items', 'Marketing Budget Adjustments', etc.). Do NOT use generic section titles like 'Strategic Recommendations' if they don't fit the question.
+Each section must start with a clear markdown heading (e.g. '## Section Title') and contain 2-4 bullet points (start each with a dash '- ') with concrete, data-driven actionable items.
 
 Be direct, specific and data-driven. Reference actual column names and values where relevant.
 """
