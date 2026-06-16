@@ -1500,7 +1500,7 @@ def run_agent_workflow(query, df):
             raise ValueError("GEMINI_API_KEY is not configured.")
 
         prompt = (
-            f"You are a helpful and expert AI Data Analyst. Your task is to directly, clearly, and fully answer the user's question.\n\n"
+            f"You are a helpful and expert AI Data Analyst. Your task is to provide comprehensive, highly detailed, and complete answers to the user's question.\n\n"
             f"User Question: '{query}'\n\n"
             f"Below is the data context, computed results, and insights obtained by analyzing the dataset:\n"
             f"- Dataset Name: {file_name}\n"
@@ -1510,9 +1510,9 @@ def run_agent_workflow(query, df):
             f"- Analysis Insights: {ir}\n"
             f"- Analysis Recommendations: {format_agent_value(result.get('recommendations'))}\n\n"
             f"Instructions:\n"
-            f"1. Directly, fully, and clearly answer the user's question using the provided computed results, insights, and health status. Be specific and reference exact numbers or values from the computed results where appropriate.\n"
+            f"1. Provide a highly detailed and comprehensive explanation answering the user's question. Use the provided computed results, insights, and health status. Be highly specific and reference exact numbers, trends, and values from the computed results where appropriate.\n"
             f"2. Keep the answer structured, clean, and easy to read. Use Markdown, tables, or lists where helpful. Avoid generating a generic multi-section report unless the user's query specifically asked for a full report.\n"
-            f"3. Do not include any filler text, introductory pleasantries, or generic summaries. Start answering the question directly.\n"
+            f"3. Ensure the explanation thoroughly addresses all facets of the query. Do not include any filler text, introductory pleasantries, or generic summaries. Start answering the question directly.\n"
         )
         assistant_reply = generate_text(GEMINI_API_KEY, prompt, max_output_tokens=4096)
     except Exception as exc:
@@ -1538,67 +1538,79 @@ def render_upload():
 
     with left:
         st.markdown('<div class="section-label">Dataset Intake</div>', unsafe_allow_html=True)
-        uploaded_file = st.file_uploader(
-            "Dataset file",
+        uploaded_files = st.file_uploader(
+            "Dataset file(s)",
             type=("csv", "xlsx", "xls", "json", "db", "sqlite", "sqlite3", "pdf"),
-            help="CSV, Excel, JSON, SQLite, and PDF files are supported.",
+            accept_multiple_files=True,
+            help="Upload one or multiple files. Multiple tabular files will be combined.",
         )
 
         query = None
-        source_type = None
 
-        if uploaded_file is not None:
-            source_type = uploaded_source(uploaded_file)
-            st.info(f"Detected source: {source_type}")
+        if uploaded_files:
+            first_source = uploaded_source(uploaded_files[0])
+            st.info(f"Detected {len(uploaded_files)} file(s).")
 
-            if source_type == "SQLite":
+            if any(uploaded_source(f) == "SQLite" for f in uploaded_files):
                 query = st.text_area("SQL Query", "SELECT * FROM table_name LIMIT 1000")
 
-            try:
-                if source_type == "SQLite":
-                    tmp_path = None
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=".db") as tmp:
-                        tmp.write(uploaded_file.read())
-                        tmp_path = tmp.name
+            if st.button("Start Analytics", type="primary", use_container_width=True):
+                try:
+                    dfs = []
+                    main_source = "Combined" if len(uploaded_files) > 1 else first_source
+                    file_names = ", ".join([getattr(f, "name", "uploaded") for f in uploaded_files])
+                    
+                    with st.spinner("Processing file(s)..."):
+                        for uploaded_file in uploaded_files:
+                            source_type = uploaded_source(uploaded_file)
+                            if source_type == "SQLite":
+                                tmp_path = None
+                                with tempfile.NamedTemporaryFile(delete=False, suffix=".db") as tmp:
+                                    tmp.write(uploaded_file.read())
+                                    tmp_path = tmp.name
 
-                    try:
-                        df = DataLoader.load_sqlite(
-                            tmp_path,
-                            query or "SELECT name FROM sqlite_master WHERE type='table';",
-                        )
-                    finally:
-                        if tmp_path and os.path.exists(tmp_path):
-                            os.remove(tmp_path)
-                elif source_type in ("CSV", "Excel", "JSON"):
-                    df = DataLoader.load_file(uploaded_file)
-                elif source_type == "PDF":
-                    with st.spinner("Extracting tabular dataset from PDF via Gemini..."):
-                        from core.gemini_service import parse_pdf_to_csv
-                        from core.config import GEMINI_API_KEY
-                        if not GEMINI_API_KEY:
-                            raise ValueError("GEMINI_API_KEY is not configured. An API key is required to parse PDF tables.")
-                        csv_text = parse_pdf_to_csv(GEMINI_API_KEY, uploaded_file.read())
-                        import io
-                        df = pd.read_csv(io.StringIO(csv_text))
-                else:
-                    raise ValueError("Unsupported file type.")
+                                try:
+                                    dfs.append(DataLoader.load_sqlite(
+                                        tmp_path,
+                                        query or "SELECT name FROM sqlite_master WHERE type='table';",
+                                    ))
+                                finally:
+                                    if tmp_path and os.path.exists(tmp_path):
+                                        os.remove(tmp_path)
+                            elif source_type in ("CSV", "Excel", "JSON"):
+                                dfs.append(DataLoader.load_file(uploaded_file))
+                            elif source_type == "PDF":
+                                from core.gemini_service import parse_pdf_to_csv
+                                from core.config import GEMINI_API_KEY
+                                if not GEMINI_API_KEY:
+                                    raise ValueError("GEMINI_API_KEY is not configured. An API key is required to parse PDF tables.")
+                                csv_text = parse_pdf_to_csv(GEMINI_API_KEY, uploaded_file.read())
+                                import io
+                                dfs.append(pd.read_csv(io.StringIO(csv_text)))
+                            else:
+                                raise ValueError(f"Unsupported file type for {uploaded_file.name}")
 
-                StateManager.save_dataframe(
-                    df=df,
-                    file_name=getattr(uploaded_file, "name", "uploaded"),
-                    source=source_type,
-                )
-                StateManager.update_conversation([])
-                st.session_state.latest_result = None
-                st.session_state.selected_chart_keys = []
-                st.session_state.report_path = None
-                st.session_state.chart_cache_key = None
-                st.session_state.chart_cache = []
-                st.session_state.analysis_cache = {}
-                st.success("Dataset loaded.")
-                st.rerun()
-            except Exception as exc:
-                st.error(f"Failed to load dataset: {exc}")
+                    if not dfs:
+                        raise ValueError("No data could be loaded.")
+                    
+                    df = pd.concat(dfs, ignore_index=True) if len(dfs) > 1 else dfs[0]
+
+                    StateManager.save_dataframe(
+                        df=df,
+                        file_name=file_names,
+                        source=main_source,
+                    )
+                    StateManager.update_conversation([])
+                    st.session_state.latest_result = None
+                    st.session_state.selected_chart_keys = []
+                    st.session_state.report_path = None
+                    st.session_state.chart_cache_key = None
+                    st.session_state.chart_cache = []
+                    st.session_state.analysis_cache = {}
+                    st.success("Dataset loaded.")
+                    st.rerun()
+                except Exception as exc:
+                    st.error(f"Failed to load dataset: {exc}")
 
     with right:
         st.markdown('<div class="section-label">AI Analyst System Status</div>', unsafe_allow_html=True)
