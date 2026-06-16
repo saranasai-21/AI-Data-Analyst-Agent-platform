@@ -1844,7 +1844,7 @@ def render_ai_workspace(df):
     for item in conversation:
         role = item.get("role", "assistant")
         with st.chat_message(role):
-            st.write(item.get("content", ""))
+            st.markdown(item.get("content", ""))
 
     query = st.chat_input("Ask a question about this dataset")
 
