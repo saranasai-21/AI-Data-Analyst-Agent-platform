@@ -1894,6 +1894,7 @@ def render_report(df, charts, profile, quality_report):
             analysis_result=analysis_result,
             insights=insights,
             recommendations=recommendations,
+            charts=charts,
             output_path=f"outputs/{output_name}.pdf",
         )
         st.session_state.pdf_report_path = pdf_path

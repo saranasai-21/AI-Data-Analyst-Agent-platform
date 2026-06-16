@@ -11,7 +11,8 @@ from reportlab.platypus import (
     PageBreak,
     Table,
     TableStyle,
-    Preformatted
+    Preformatted,
+    Image
 )
 
 from reportlab.lib.styles import (
@@ -80,6 +81,7 @@ class PDFService:
         analysis_result,
         insights,
         recommendations,
+        charts=None,
         output_path="outputs/report.pdf"
     ):
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -548,6 +550,28 @@ class PDFService:
         content.append(Spacer(1, 10))
         content.extend(markdown_to_flowables(recommendations, custom_styles))
         content.append(PageBreak())
+
+        # ----------------------------------
+        # Visualizations Page
+        # ----------------------------------
+        if charts:
+            content.append(Paragraph("Visualizations", heading_style))
+            content.append(Spacer(1, 10))
+            for chart in charts:
+                try:
+                    import tempfile
+                    import uuid
+                    temp_img = os.path.join(tempfile.gettempdir(), f"chart_{uuid.uuid4().hex}.png")
+                    chart.fig.write_image(temp_img, engine="kaleido", width=800, height=500)
+                    
+                    content.append(Paragraph(html.escape(chart.title), styles["Heading3"]))
+                    content.append(Spacer(1, 5))
+                    img = Image(temp_img, width=450, height=281)
+                    content.append(img)
+                    content.append(Spacer(1, 20))
+                except Exception:
+                    pass
+            content.append(PageBreak())
 
         # ----------------------------------
         # Executive Summary Page
