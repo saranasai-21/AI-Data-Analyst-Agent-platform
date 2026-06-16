@@ -30,6 +30,12 @@ def _model_chain():
     return ordered
 
 
+def _is_model_not_found(exc):
+    """Return True if the error indicates the model itself does not exist (404)."""
+    text = str(exc).upper()
+    return "404" in text or "NOT_FOUND" in text
+
+
 def _is_retryable(exc):
     text = str(exc).upper()
     return any(
@@ -85,7 +91,10 @@ def generate_text(
     last_error = None
 
     for model in _model_chain():
+        model_skipped = False
         for key in ordered_keys:
+            if model_skipped:
+                break
             try:
                 client = genai.Client(api_key=key)
                 config_args = {
@@ -127,6 +136,14 @@ def generate_text(
                         return response.text or ""
                     except Exception as exc:
                         last_error = exc
+
+                        # Model doesn't exist at all — skip to next model immediately
+                        if _is_model_not_found(exc):
+                            logger.warning(
+                                f"Model {model} not found (404). Skipping to next model. Error: {exc}"
+                            )
+                            model_skipped = True
+                            break
                         
                         if _is_quota_exhausted(exc):
                             logger.warning(
@@ -180,7 +197,10 @@ def parse_pdf_to_csv(api_key, pdf_bytes):
     last_error = None
 
     for model in _model_chain():
+        model_skipped = False
         for key in ordered_keys:
+            if model_skipped:
+                break
             try:
                 client = genai.Client(api_key=key)
                 for attempt in range(GEMINI_MAX_RETRIES + 1):
@@ -219,6 +239,15 @@ def parse_pdf_to_csv(api_key, pdf_bytes):
                         return text.strip()
                     except Exception as exc:
                         last_error = exc
+
+                        # Model doesn't exist — skip to next model immediately
+                        if _is_model_not_found(exc):
+                            logger.warning(
+                                f"Model {model} not found (404) during PDF parsing. Skipping to next model. Error: {exc}"
+                            )
+                            model_skipped = True
+                            break
+
                         if _is_quota_exhausted(exc):
                             logger.warning(
                                 f"Gemini API key rate-limited/exhausted for model {model} during PDF parsing. Switching key. Error: {exc}"
