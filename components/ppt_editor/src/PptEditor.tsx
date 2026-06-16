@@ -4,7 +4,7 @@ import { fabric } from 'fabric';
 import {
   Lock, Unlock, Type, Image as ImageIcon, Trash2, Layout, Settings,
   List, Table as TableIcon, BarChart3, ZoomIn, ZoomOut, Maximize2,
-  HelpCircle, ChevronLeft, ChevronRight, Download, Save, Undo2, Redo2, Square, Share2, Layers
+  HelpCircle, ChevronLeft, ChevronRight, Download, Save, Undo2, Redo2, Square, Share2, Layers, Sparkles
 } from 'lucide-react';
 
 const SLIDE_WIDTH = 1600;
@@ -135,17 +135,22 @@ const PptEditor = ({ args }: ComponentProps) => {
     });
     objects.push(xAxis, yAxis);
 
+    const isMockup = chartData?.type === 'mockup_bar';
     const barColors = ['#06b6d4', '#8b5cf6', '#f59e0b', '#10b981'];
-    const barLabels = ['Q1', 'Q2', 'Q3', 'Q4'];
-    const barValues = [0.45, 0.75, 0.60, 0.90];
+    const mockupColors = ['#5391e6', '#59b8eb', '#06b6d4', '#0284c7', '#7dd3fc'];
+    
+    const colorsToUse = isMockup ? mockupColors : barColors;
+    const labelsToUse = isMockup ? ['Item 1', 'Item 2', 'Item 3', 'Item 4', 'Item 5'] : ['Q1', 'Q2', 'Q3', 'Q4'];
+    const valuesToUse = isMockup ? [0.28, 0.40, 0.56, 0.72, 0.88] : [0.45, 0.75, 0.60, 0.90];
+    const count = isMockup ? 5 : 4;
 
     const chartHeight = h - 220;
     const chartWidth = w - 180;
-    const barWidth = Math.min(80, (chartWidth / 4) * 0.5);
-    const spacing = (chartWidth - barWidth * 4) / 5;
+    const barWidth = Math.min(80, (chartWidth / count) * 0.5);
+    const spacing = (chartWidth - barWidth * count) / (count + 1);
 
-    for (let i = 0; i < 4; i++) {
-      const barHeight = chartHeight * barValues[i];
+    for (let i = 0; i < count; i++) {
+      const barHeight = chartHeight * valuesToUse[i];
       const barLeft = x + 100 + spacing + i * (barWidth + spacing);
       const barTop = y + h - 100 - barHeight;
 
@@ -154,12 +159,12 @@ const PptEditor = ({ args }: ComponentProps) => {
         top: barTop,
         width: barWidth,
         height: barHeight,
-        fill: barColors[i],
+        fill: colorsToUse[i],
         rx: 8,
         ry: 8
       });
 
-      const label = new fabric.Text(barLabels[i], {
+      const label = new fabric.Text(labelsToUse[i], {
         left: barLeft + barWidth / 2,
         top: y + h - 75,
         fontSize: 18,
@@ -258,7 +263,25 @@ const PptEditor = ({ args }: ComponentProps) => {
 
     currentLoadSlideIdxRef.current = idx;
     canvas.clear();
-    canvas.setBackgroundColor('#0f294a', () => { });
+    const bgGrad = new fabric.Gradient({
+      type: 'radial',
+      coords: {
+        x1: 100,
+        y1: 450,
+        r1: 0,
+        x2: 800,
+        y2: 450,
+        r2: 1200,
+      },
+      colorStops: [
+        { offset: 0, color: '#2b215c' },
+        { offset: 0.5, color: '#0f121b' },
+        { offset: 1, color: '#0a0b0e' }
+      ]
+    });
+    canvas.setBackgroundColor(bgGrad, () => {
+      canvas.renderAll();
+    });
 
     const elements = slide.elements || [];
 
@@ -986,35 +1009,100 @@ const PptEditor = ({ args }: ComponentProps) => {
   return (
     <div className="flex flex-col h-[800px] w-full bg-[#0d0d0e] rounded-2xl overflow-hidden border border-white/10 text-zinc-100 select-none shadow-2xl font-sans relative">
 
-      {/* 1. Top Header Bar with profile avatar */}
-      <div className="h-[60px] bg-[#161619]/95 border-b border-white/[0.06] flex items-center justify-between px-6 z-25 relative shadow-md">
-        {/* Left: Branding */}
-        <div className="flex items-center space-x-3">
-          <span className="text-sm font-extrabold tracking-wider text-zinc-100 uppercase">Workspase</span>
-        </div>
-
-        {/* Right: Actions and Controls */}
+      {/* 1. Top Header Bar with download action */}
+      <div className="h-[64px] bg-[#0d0d0e]/95 border-b border-white/[0.06] flex items-center justify-between px-6 z-25 relative shadow-md">
+        {/* Left: Branding & Editor actions */}
         <div className="flex items-center space-x-4">
+          <span className="text-xs font-black tracking-widest text-zinc-400 uppercase">SLIDE CREATOR</span>
+          <div className="w-px h-4 bg-white/10"></div>
+          
+          {/* Quick edit tools: Undo, Redo, Add shapes, etc. */}
+          <div className="flex items-center space-x-1.5">
+            <button
+              onClick={handleUndo}
+              disabled={undoStack.length === 0}
+              className="p-2 rounded-lg bg-white/[0.02] hover:bg-white/[0.08] disabled:opacity-20 text-zinc-400 hover:text-white transition-colors"
+              title="Undo"
+            >
+              <Undo2 className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleRedo}
+              disabled={redoStack.length === 0}
+              className="p-2 rounded-lg bg-white/[0.02] hover:bg-white/[0.08] disabled:opacity-20 text-zinc-400 hover:text-white transition-colors"
+              title="Redo"
+            >
+              <Redo2 className="w-4 h-4" />
+            </button>
+            <div className="w-px h-4 bg-white/10 mx-1"></div>
+            <button
+              onClick={handleAddText}
+              disabled={isLocked}
+              className="p-2 rounded-lg bg-white/[0.02] hover:bg-white/[0.08] text-zinc-400 hover:text-white transition-colors"
+              title="Add Text"
+            >
+              <Type className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleAddBullets}
+              disabled={isLocked}
+              className="p-2 rounded-lg bg-white/[0.02] hover:bg-white/[0.08] text-zinc-400 hover:text-white transition-colors"
+              title="Add Bullets"
+            >
+              <List className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleAddShape}
+              disabled={isLocked}
+              className="p-2 rounded-lg bg-white/[0.02] hover:bg-white/[0.08] text-zinc-400 hover:text-white transition-colors"
+              title="Add Shape"
+            >
+              <Square className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleAddImage}
+              disabled={isLocked}
+              className="p-2 rounded-lg bg-white/[0.02] hover:bg-white/[0.08] text-zinc-400 hover:text-white transition-colors"
+              title="Add Image"
+            >
+              <ImageIcon className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleAddTable}
+              disabled={isLocked}
+              className="p-2 rounded-lg bg-white/[0.02] hover:bg-white/[0.08] disabled:opacity-20 text-zinc-400 hover:text-white transition-colors"
+              title="Add Table"
+            >
+              <TableIcon className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleAddChart}
+              disabled={isLocked}
+              className="p-2 rounded-lg bg-white/[0.02] hover:bg-white/[0.08] disabled:opacity-20 text-zinc-400 hover:text-white transition-colors"
+              title="Add Chart"
+            >
+              <BarChart3 className="w-4 h-4" />
+            </button>
+          </div>
 
-          {/* Main Action Buttons */}
-          <div className="flex items-center space-x-6">
+          <div className="w-px h-4 bg-white/10 mx-1"></div>
+          {/* Colors & Templates */}
+          <div className="flex items-center space-x-2">
             <button
               onClick={handleTemplateReplacement}
-              className="px-4 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 flex items-center text-xs font-semibold transition-all border border-indigo-500/30 shadow-sm"
+              className="px-2.5 py-1 rounded-lg bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-300 flex items-center text-[11px] font-semibold transition-all border border-indigo-500/20"
             >
-              <Share2 className="w-3.5 h-3.5 mr-1.5" /> Template replacement
+              <Share2 className="w-3 h-3 mr-1" /> Style
             </button>
-
             <div className="relative flex items-center">
               <button
                 onClick={handleToggleTransparency}
-                className="px-4 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 flex items-center text-xs font-semibold transition-all border border-indigo-500/30 shadow-sm"
+                className="px-2.5 py-1 rounded-lg bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-300 flex items-center text-[11px] font-semibold transition-all border border-indigo-500/20"
               >
-                <Layers className="w-3.5 h-3.5 mr-1.5" /> Colour transparency
+                <Layers className="w-3 h-3 mr-1" /> Opacity
               </button>
-              
               {showTransparencySlider && (
-                <div className="absolute top-full mt-2 left-0 w-48 bg-[#1e1b4b] border border-indigo-500/30 p-3 rounded-lg shadow-xl z-50 flex flex-col space-y-2">
+                <div className="absolute top-full mt-2 left-0 w-48 bg-[#161619] border border-indigo-500/20 p-3 rounded-lg shadow-xl z-50 flex flex-col space-y-2">
                   <div className="flex justify-between items-center">
                     <span className="text-xs text-indigo-300 font-semibold">Opacity</span>
                     <span className="text-xs text-indigo-300">{currentOpacityVal}%</span>
@@ -1025,51 +1113,23 @@ const PptEditor = ({ args }: ComponentProps) => {
                     max="100" 
                     value={currentOpacityVal} 
                     onChange={handleOpacityChange}
-                    className="w-full h-1 bg-indigo-900 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                    className="w-full h-1 bg-indigo-950 rounded-lg appearance-none cursor-pointer accent-indigo-500"
                   />
                 </div>
               )}
             </div>
           </div>
+        </div>
 
-          <div className="w-px h-5 bg-white/10"></div>
-
-          {/* Quick Icons Reset to Mockup Way */}
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={handleUndo}
-              disabled={undoStack.length === 0}
-              className="p-1.5 rounded-lg bg-white/[0.02] hover:bg-white/[0.08] disabled:opacity-20 text-zinc-400 hover:text-white transition-colors"
-              title="Undo"
-            >
-              <Undo2 className="w-4 h-4" />
-            </button>
-            <button
-              onClick={handleRedo}
-              disabled={redoStack.length === 0}
-              className="p-1.5 rounded-lg bg-white/[0.02] hover:bg-white/[0.08] disabled:opacity-20 text-zinc-400 hover:text-white transition-colors"
-              title="Redo"
-            >
-              <Redo2 className="w-4 h-4" />
-            </button>
-            <button
-              onClick={handleAddTable}
-              disabled={isLocked}
-              className="p-1.5 rounded-lg bg-white/[0.02] hover:bg-white/[0.08] disabled:opacity-20 text-zinc-400 hover:text-white transition-colors"
-              title="Add Table"
-            >
-              <TableIcon className="w-4 h-4" />
-            </button>
-            <button
-              onClick={handleAddChart}
-              disabled={isLocked}
-              className="p-1.5 rounded-lg bg-white/[0.02] hover:bg-white/[0.08] disabled:opacity-20 text-zinc-400 hover:text-white transition-colors"
-              title="Add Chart"
-            >
-              <BarChart3 className="w-4 h-4" />
-            </button>
-          </div>
-
+        {/* Right: Customize text and Present Button */}
+        <div className="flex items-center space-x-6">
+          <span className="text-zinc-400 text-xs italic tracking-wide">Customize content and brand colour.</span>
+          <button
+            onClick={() => handleHeaderAction('download')}
+            className="px-5 py-2.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] text-white flex items-center text-xs font-semibold tracking-wide transition-all border border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.3)] italic cursor-pointer"
+          >
+            Download and present <Sparkles className="w-3.5 h-3.5 ml-2 text-indigo-400" />
+          </button>
         </div>
       </div>
 
@@ -1095,16 +1155,18 @@ const PptEditor = ({ args }: ComponentProps) => {
               <div
                 key={idx}
                 onClick={() => setActiveSlideIdx(idx)}
-                className={`p-2 mx-2 rounded-xl cursor-pointer border transition-all duration-200 group flex items-start space-x-2.5 ${activeSlideIdx === idx
+                className={`p-2 mx-1.5 rounded-xl cursor-pointer border transition-all duration-200 group flex flex-col relative ${activeSlideIdx === idx
                     ? 'border-indigo-500/50 bg-indigo-500/10 shadow-[0_0_15px_rgba(99,102,241,0.15)] scale-[1.01]'
                     : 'border-transparent hover:bg-white/5 hover:border-white/10'
                   }`}
               >
-                <div className="text-[10px] font-bold text-zinc-500 w-4 pt-1.5 text-right">{idx + 1}</div>
-                <div className="flex-1 min-w-0">
+                <div className="relative w-full">
                   {renderMiniPreview(slide)}
-                  <div className="text-xs font-semibold truncate text-zinc-300 mt-1.5 group-hover:text-zinc-200">{slide.title || 'Untitled'}</div>
+                  <div className="absolute bottom-1.5 left-1.5 bg-[#3b82f6] text-white text-[10px] font-bold w-4 h-4 rounded-sm flex items-center justify-center shadow-md">
+                    {idx + 1}
+                  </div>
                 </div>
+                <div className="text-xs font-semibold truncate text-zinc-300 mt-1.5 group-hover:text-zinc-200 pl-1">{slide.title || 'Untitled'}</div>
               </div>
             ))}
           </div>
@@ -1125,34 +1187,45 @@ const PptEditor = ({ args }: ComponentProps) => {
         </button>
 
         {/* Center Canvas Viewport - scrollable zoom viewport */}
-        <div ref={containerRef} className="flex-1 bg-[#c1d8f7] flex items-center justify-center p-8 overflow-auto relative dot-grid">
+        <div ref={containerRef} className="flex-1 bg-[#09090b] flex items-center justify-center p-8 overflow-auto relative">
           <div
             style={{
-              width: SLIDE_WIDTH * scale,
-              height: SLIDE_HEIGHT * scale,
-              position: 'relative'
+              padding: '16px',
+              border: '2px dashed rgba(255, 255, 255, 0.15)',
+              borderRadius: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
-            className="slide-canvas-shadow bg-white rounded-sm ring-1 ring-black/20"
           >
             <div
               style={{
-                width: SLIDE_WIDTH,
-                height: SLIDE_HEIGHT,
-                transform: `scale(${scale})`,
-                transformOrigin: 'top left',
-                position: 'absolute',
-                left: 0,
-                top: 0
+                width: SLIDE_WIDTH * scale,
+                height: SLIDE_HEIGHT * scale,
+                position: 'relative'
               }}
+              className="slide-canvas-shadow bg-white rounded-sm ring-1 ring-black/20"
             >
-              <canvas ref={canvasRef} />
-              {slides[activeSlideIdx]?.layout === 'visual_analysis' && (
-                <div className="absolute inset-0 bg-zinc-900/40 flex items-center justify-center pointer-events-none backdrop-blur-[2px]">
-                  <div className="bg-[#18181b]/95 text-zinc-100 border border-white/10 px-8 py-4 rounded-2xl shadow-2xl text-xl font-bold tracking-tight">
-                    Chart Analytics Canvas (Read Only)
+              <div
+                style={{
+                  width: SLIDE_WIDTH,
+                  height: SLIDE_HEIGHT,
+                  transform: `scale(${scale})`,
+                  transformOrigin: 'top left',
+                  position: 'absolute',
+                  left: 0,
+                  top: 0
+                }}
+              >
+                <canvas ref={canvasRef} />
+                {slides[activeSlideIdx]?.layout === 'visual_analysis' && (
+                  <div className="absolute inset-0 bg-zinc-900/40 flex items-center justify-center pointer-events-none backdrop-blur-[2px]">
+                    <div className="bg-[#18181b]/95 text-zinc-100 border border-white/10 px-8 py-4 rounded-2xl shadow-2xl text-xl font-bold tracking-tight">
+                      Chart Analytics Canvas (Read Only)
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
         </div>

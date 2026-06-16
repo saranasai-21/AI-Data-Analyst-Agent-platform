@@ -44,6 +44,349 @@ os.makedirs("outputs/charts", exist_ok=True)
 
 StateManager.initialize()
 
+def get_default_presentation_state():
+    return {
+        "slides": [
+            {
+                "id": "slide_1",
+                "layout": "cover",
+                "title": "All Entertainment Application",
+                "elements": [
+                    {
+                        "type": "title",
+                        "text": "All Entertainment Application",
+                        "x": 100, "y": 220, "w": 900, "h": 150,
+                        "fontSize": 54, "fill": "#ffffff"
+                    },
+                    {
+                        "type": "text",
+                        "text": "Write an intriguing summary of\nwhat your company does.",
+                        "x": 100, "y": 390, "w": 800, "h": 120,
+                        "fontSize": 24, "fill": "#a1a1aa"
+                    },
+                    {
+                        "type": "shape",
+                        "x": 100, "y": 140, "w": 280, "h": 60,
+                        "fill": "#4f46e5"
+                    },
+                    {
+                        "type": "text",
+                        "text": "Pitching presentation",
+                        "x": 120, "y": 150, "w": 240, "h": 40,
+                        "fontSize": 18, "fill": "#ffffff"
+                    },
+                    {
+                        "type": "text",
+                        "text": "with tips\nand tricks",
+                        "x": 1100, "y": 420, "w": 400, "h": 200,
+                        "fontSize": 48, "fill": "#ffffff"
+                    },
+                    {
+                        "type": "shape",
+                        "x": 80, "y": 780, "w": 40, "h": 40,
+                        "fill": "#3b82f6"
+                    },
+                    {
+                        "type": "text",
+                        "text": "1",
+                        "x": 80, "y": 785, "w": 40, "h": 30,
+                        "fontSize": 18, "fill": "#ffffff"
+                    }
+                ]
+            },
+            {
+                "id": "slide_2",
+                "layout": "bullet_points",
+                "title": "Too Much Entertainment Applications",
+                "elements": [
+                    {
+                        "type": "title",
+                        "text": "Too Much\nEntertainment\nApplications",
+                        "x": 100, "y": 180, "w": 550, "h": 200,
+                        "fontSize": 44, "fill": "#ffffff"
+                    },
+                    {
+                        "type": "text",
+                        "text": "Create visual catching highlight for your\npresentation, to keep reader's\nattention during your product or service...",
+                        "x": 100, "y": 440, "w": 550, "h": 150,
+                        "fontSize": 20, "fill": "#a1a1aa"
+                    },
+                    {
+                        "type": "shape",
+                        "x": 750, "y": 150, "w": 750, "h": 150,
+                        "fill": "rgba(99, 102, 241, 0.1)"
+                    },
+                    {
+                        "type": "text",
+                        "text": "Too much entertainment applications",
+                        "x": 780, "y": 170, "w": 690, "h": 40,
+                        "fontSize": 22, "fill": "#ffffff"
+                    },
+                    {
+                        "type": "text",
+                        "text": "Presentations are communication tools that can be used for demonstration.",
+                        "x": 780, "y": 215, "w": 690, "h": 60,
+                        "fontSize": 16, "fill": "#a1a1aa"
+                    },
+                    {
+                        "type": "shape",
+                        "x": 750, "y": 330, "w": 750, "h": 150,
+                        "fill": "rgba(99, 102, 241, 0.1)"
+                    },
+                    {
+                        "type": "text",
+                        "text": "Lack of storage space on device",
+                        "x": 780, "y": 350, "w": 690, "h": 40,
+                        "fontSize": 22, "fill": "#ffffff"
+                    },
+                    {
+                        "type": "text",
+                        "text": "Presentations are communication tools that can be used for demonstration.",
+                        "x": 780, "y": 395, "w": 690, "h": 60,
+                        "fontSize": 16, "fill": "#a1a1aa"
+                    },
+                    {
+                        "type": "shape",
+                        "x": 750, "y": 510, "w": 750, "h": 150,
+                        "fill": "rgba(99, 102, 241, 0.1)"
+                    },
+                    {
+                        "type": "text",
+                        "text": "Paradox of Choices",
+                        "x": 780, "y": 530, "w": 690, "h": 40,
+                        "fontSize": 22, "fill": "#ffffff"
+                    },
+                    {
+                        "type": "text",
+                        "text": "Presentations are communication tools that can be used for demonstration.",
+                        "x": 780, "y": 575, "w": 690, "h": 60,
+                        "fontSize": 16, "fill": "#a1a1aa"
+                    },
+                    {
+                        "type": "shape",
+                        "x": 80, "y": 780, "w": 40, "h": 40,
+                        "fill": "#3b82f6"
+                    },
+                    {
+                        "type": "text",
+                        "text": "2",
+                        "x": 80, "y": 785, "w": 40, "h": 30,
+                        "fontSize": 18, "fill": "#ffffff"
+                    }
+                ]
+            },
+            {
+                "id": "slide_3",
+                "layout": "bullet_points",
+                "title": "AI Assistance",
+                "elements": [
+                    {
+                        "type": "title",
+                        "text": "AI Assistance",
+                        "x": 100, "y": 420, "w": 550, "h": 100,
+                        "fontSize": 44, "fill": "#ffffff"
+                    },
+                    {
+                        "type": "text",
+                        "text": "The concept of your company\nproduct or service details. Make\ntemplate with catchy text to get\nattention from readers.",
+                        "x": 100, "y": 520, "w": 550, "h": 180,
+                        "fontSize": 20, "fill": "#a1a1aa"
+                    },
+                    {
+                        "type": "shape",
+                        "x": 100, "y": 150, "w": 320, "h": 220,
+                        "fill": "rgba(99, 102, 241, 0.2)"
+                    },
+                    {
+                        "type": "text",
+                        "text": "Watching History Analytics",
+                        "x": 750, "y": 180, "w": 700, "h": 40,
+                        "fontSize": 22, "fill": "#ffffff"
+                    },
+                    {
+                        "type": "text",
+                        "text": "Briefly explain the details about your solution with 1 word or 1 sentence.",
+                        "x": 750, "y": 225, "w": 700, "h": 60,
+                        "fontSize": 16, "fill": "#a1a1aa"
+                    },
+                    {
+                        "type": "text",
+                        "text": "AI Recommendation",
+                        "x": 750, "y": 320, "w": 700, "h": 40,
+                        "fontSize": 22, "fill": "#ffffff"
+                    },
+                    {
+                        "type": "text",
+                        "text": "Briefly explain the details about your solution with 1 word or 1 sentence.",
+                        "x": 750, "y": 365, "w": 700, "h": 60,
+                        "fontSize": 16, "fill": "#a1a1aa"
+                    },
+                    {
+                        "type": "text",
+                        "text": "Privacy First",
+                        "x": 750, "y": 460, "w": 700, "h": 40,
+                        "fontSize": 22, "fill": "#ffffff"
+                    },
+                    {
+                        "type": "text",
+                        "text": "Briefly explain the details about your solution with 1 word or 1 sentence.",
+                        "x": 750, "y": 505, "w": 700, "h": 60,
+                        "fontSize": 16, "fill": "#a1a1aa"
+                    },
+                    {
+                        "type": "shape",
+                        "x": 80, "y": 780, "w": 40, "h": 40,
+                        "fill": "#3b82f6"
+                    },
+                    {
+                        "type": "text",
+                        "text": "3",
+                        "x": 80, "y": 785, "w": 40, "h": 30,
+                        "fontSize": 18, "fill": "#ffffff"
+                    }
+                ]
+            },
+            {
+                "id": "slide_4",
+                "layout": "bullet_points",
+                "title": "Our Story",
+                "elements": [
+                    {
+                        "type": "title",
+                        "text": "Our Story",
+                        "x": 100, "y": 140, "w": 400, "h": 100,
+                        "fontSize": 44, "fill": "#ffffff"
+                    },
+                    {
+                        "type": "text",
+                        "text": "Explain your product or\nservice briefly. Use\nsimple words to define\nyour product or service.",
+                        "x": 520, "y": 140, "w": 450, "h": 150,
+                        "fontSize": 18, "fill": "#a1a1aa"
+                    },
+                    {
+                        "type": "text",
+                        "text": "Be helpful way of\nvisualising your\nexplanation. What\nillustrations or details.",
+                        "x": 1020, "y": 140, "w": 450, "h": 150,
+                        "fontSize": 18, "fill": "#a1a1aa"
+                    },
+                    {
+                        "type": "shape",
+                        "x": 100, "y": 320, "w": 420, "h": 70,
+                        "fill": "#4f46e5"
+                    },
+                    {
+                        "type": "text",
+                        "text": "Step 1",
+                        "x": 120, "y": 335, "w": 380, "h": 40,
+                        "fontSize": 20, "fill": "#ffffff"
+                    },
+                    {
+                        "type": "text",
+                        "text": "Presentations are\ncommunication tools\nused for details.",
+                        "x": 100, "y": 420, "w": 420, "h": 120,
+                        "fontSize": 16, "fill": "#a1a1aa"
+                    },
+                    {
+                        "type": "shape",
+                        "x": 560, "y": 320, "w": 420, "h": 70,
+                        "fill": "#4f46e5"
+                    },
+                    {
+                        "type": "text",
+                        "text": "Step 2",
+                        "x": 580, "y": 335, "w": 380, "h": 40,
+                        "fontSize": 20, "fill": "#ffffff"
+                    },
+                    {
+                        "type": "text",
+                        "text": "Presentations are\ncommunication tools\nused for details.",
+                        "x": 560, "y": 420, "w": 420, "h": 120,
+                        "fontSize": 16, "fill": "#a1a1aa"
+                    },
+                    {
+                        "type": "shape",
+                        "x": 1020, "y": 320, "w": 420, "h": 70,
+                        "fill": "#4f46e5"
+                    },
+                    {
+                        "type": "text",
+                        "text": "Step 3",
+                        "x": 1040, "y": 335, "w": 380, "h": 40,
+                        "fontSize": 20, "fill": "#ffffff"
+                    },
+                    {
+                        "type": "text",
+                        "text": "Presentations are\ncommunication tools\nused for details.",
+                        "x": 1020, "y": 420, "w": 420, "h": 120,
+                        "fontSize": 16, "fill": "#a1a1aa"
+                    },
+                    {
+                        "type": "shape",
+                        "x": 80, "y": 780, "w": 40, "h": 40,
+                        "fill": "#3b82f6"
+                    },
+                    {
+                        "type": "text",
+                        "text": "4",
+                        "x": 80, "y": 785, "w": 40, "h": 30,
+                        "fontSize": 18, "fill": "#ffffff"
+                    }
+                ]
+            },
+            {
+                "id": "slide_5",
+                "layout": "visual_analysis",
+                "title": "New Era In-Home Entertainment",
+                "elements": [
+                    {
+                        "type": "title",
+                        "text": "New Era\nIn-Home\nEntertainment",
+                        "x": 100, "y": 440, "w": 650, "h": 300,
+                        "fontSize": 64, "fill": "#ffffff"
+                    },
+                    {
+                        "type": "shape",
+                        "x": 480, "y": 180, "w": 420, "h": 220,
+                        "fill": "#6366f1"
+                    },
+                    {
+                        "type": "text",
+                        "text": "The reason why 'now' is the best time for your product or service. Likewise, the trend that makes them possible.",
+                        "x": 510, "y": 210, "w": 280, "h": 160,
+                        "fontSize": 20, "fill": "#ffffff"
+                    },
+                    {
+                        "type": "text",
+                        "text": "⏰",
+                        "x": 810, "y": 210, "w": 60, "h": 60,
+                        "fontSize": 36, "fill": "#ffffff"
+                    },
+                    {
+                        "type": "chart",
+                        "chart_data": {"title": "New Era Chart", "type": "mockup_bar"},
+                        "x": 580, "y": 440, "w": 420, "h": 320
+                    },
+                    {
+                        "type": "image",
+                        "src": "assets/entertainment_boy_bw.png",
+                        "x": 1040, "y": 150, "w": 460, "h": 600
+                    },
+                    {
+                        "type": "shape",
+                        "x": 80, "y": 780, "w": 40, "h": 40,
+                        "fill": "#3b82f6"
+                    },
+                    {
+                        "type": "text",
+                        "text": "5",
+                        "x": 80, "y": 785, "w": 40, "h": 30,
+                        "fontSize": 18, "fill": "#ffffff"
+                    }
+                ]
+            }
+        ]
+    }
+
 SESSION_DEFAULTS = {
     "latest_result": None,
     "selected_chart_keys": [],
@@ -52,6 +395,7 @@ SESSION_DEFAULTS = {
     "chart_cache_key": None,
     "chart_cache": [],
     "analysis_cache": {},
+    "presentation_state": None,
 }
 
 for key, value in SESSION_DEFAULTS.items():
@@ -1994,6 +2338,8 @@ def get_image_base64(path):
 
 def render_report(df, charts, profile, quality_report):
     import os
+    if "presentation_state" not in st.session_state or st.session_state.presentation_state is None:
+        st.session_state.presentation_state = get_default_presentation_state()
     lookup = chart_lookup(charts)
     selected_keys = [key for key in st.session_state.selected_chart_keys if key in lookup]
     selected_charts = [lookup[key] for key in selected_keys if lookup[key].path]
@@ -2258,6 +2604,8 @@ def render_report(df, charts, profile, quality_report):
                         if chart_spec.path and os.path.exists(chart_spec.path):
                             elem["chart_key"] = src
                             elem["src"] = get_image_base64(chart_spec.path)
+                    elif src.startswith("assets/") or os.path.exists(src):
+                        elem["src"] = get_image_base64(src)
         
         try:
             import sys
