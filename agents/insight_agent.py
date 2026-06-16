@@ -30,22 +30,9 @@ Write REAL, SPECIFIC insights based ONLY on the actual data above. Do NOT use pl
 CRITICAL: Do NOT include any formal greetings, conversational openings (like "Good morning", "Hello everyone"), or pleasantries. Start immediately with the required sections.
 
 
-Structure your response with these exact sections using markdown:
-
-**Executive Summary:**
-Write 2-3 sentences summarising the most important findings from the data above.
-
-**Key Findings:**
-- List 3-4 specific, numbered observations directly drawn from the analysis result.
-
-**Trends:**
-- Identify 3-4 patterns visible in the numbers or categories.
-
-**Opportunities:**
-- List 3-4 actionable opportunities based on the data findings.
-
-**Risks:**
-- List 3-4 risks or concerns evident in the data.
+Structure your response with 3-5 relevant sections using markdown.
+The section titles must be dynamic, context-aware, and directly related to the User Question and the Analysis Output (e.g. if the user asks about sales trends, sections should be about 'Sales Volume Patterns', 'Seasonal Shifts', etc.). Do NOT use generic section titles like 'Executive Summary' or 'Trends' if they don't fit the question.
+Each section must start with a clear markdown heading (e.g. '## Section Title') and contain 2-4 bullet points (start each with a dash '- ') with observations directly drawn from the data.
 
 Use only facts from the dataset summary and analysis output above. Be direct and specific.
 """
