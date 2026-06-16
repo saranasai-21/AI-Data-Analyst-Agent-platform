@@ -1500,7 +1500,7 @@ def run_agent_workflow(query, df):
             raise ValueError("GEMINI_API_KEY is not configured.")
 
         prompt = (
-            f"You are a helpful and expert AI Data Analyst. Your task is to provide comprehensive, highly detailed, and complete answers to the user's question.\n\n"
+            f"You are a helpful and expert AI Data Analyst. Your task is to provide an EXTREMELY detailed, multi-paragraph, exhaustive explanation answering the user's question.\n\n"
             f"User Question: '{query}'\n\n"
             f"Below is the data context, computed results, and insights obtained by analyzing the dataset:\n"
             f"- Dataset Name: {file_name}\n"
@@ -1510,7 +1510,7 @@ def run_agent_workflow(query, df):
             f"- Analysis Insights: {ir}\n"
             f"- Analysis Recommendations: {format_agent_value(result.get('recommendations'))}\n\n"
             f"Instructions:\n"
-            f"1. Provide a highly detailed and comprehensive explanation answering the user's question. Use the provided computed results, insights, and health status. Be highly specific and reference exact numbers, trends, and values from the computed results where appropriate.\n"
+            f"1. EXHAUSTIVE DETAIL REQUIRED: Provide an EXTREMELY detailed, comprehensive explanation answering the user's question. Use the provided computed results, insights, and health status. You must meticulously dissect every trend, reference exact numbers, and elaborate deeply on the implications of the data.\n"
             f"2. Keep the answer structured, clean, and easy to read. Use Markdown, tables, or lists where helpful. Avoid generating a generic multi-section report unless the user's query specifically asked for a full report.\n"
             f"3. Ensure the explanation thoroughly addresses all facets of the query. Do not include any filler text, introductory pleasantries, or generic summaries. Start answering the question directly.\n"
         )
@@ -1897,20 +1897,24 @@ def render_report(df, charts, profile, quality_report):
     analysis_result = latest.get("analysis_result", {"result": "No AI analysis generated yet."})
 
     if st.button("Build PDF Report", type="primary", use_container_width=True):
-        pdf_svc = PDFService()
-        output_name = safe_filename(StateManager.get_file_name() or "AI_Report")
-        pdf_path = pdf_svc.create_report(
-            file_name=StateManager.get_file_name() or "dataset",
-            profile=report_profile,
-            quality_report=report_quality,
-            analysis_result=analysis_result,
-            insights=insights,
-            recommendations=recommendations,
-            charts=charts,
-            output_path=f"outputs/{output_name}.pdf",
-        )
-        st.session_state.pdf_report_path = pdf_path
-        st.success("PDF report built successfully.")
+        try:
+            with st.spinner("Generating PDF and embedding charts..."):
+                pdf_svc = PDFService()
+                output_name = safe_filename(StateManager.get_file_name() or "AI_Report")
+                pdf_path = pdf_svc.create_report(
+                    file_name=StateManager.get_file_name() or "dataset",
+                    profile=report_profile,
+                    quality_report=report_quality,
+                    analysis_result=analysis_result,
+                    insights=insights,
+                    recommendations=recommendations,
+                    charts=charts,
+                    output_path=f"outputs/{output_name}.pdf",
+                )
+                st.session_state.pdf_report_path = pdf_path
+                st.success("PDF report built successfully.")
+        except Exception as e:
+            st.error(f"Failed to build PDF: {e}")
 
     pdf_report_path = st.session_state.get("pdf_report_path")
     if pdf_report_path and os.path.exists(pdf_report_path):

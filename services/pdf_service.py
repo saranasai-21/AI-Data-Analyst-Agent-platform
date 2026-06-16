@@ -564,7 +564,7 @@ class PDFService:
                     temp_img = os.path.join(tempfile.gettempdir(), f"chart_{uuid.uuid4().hex}.png")
                     chart.fig.write_image(temp_img, engine="kaleido", width=800, height=500)
                     
-                    content.append(Paragraph(html.escape(chart.title), styles["Heading3"]))
+                    content.append(Paragraph(html.escape(str(chart.title)), styles["Heading3"]))
                     content.append(Spacer(1, 5))
                     img = Image(temp_img, width=450, height=281)
                     content.append(img)
