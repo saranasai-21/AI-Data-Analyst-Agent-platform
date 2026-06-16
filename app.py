@@ -130,8 +130,8 @@ st.markdown(
     }}
 
     .block-container {{
-        max-width: 1340px;
-        padding: 1.15rem 1.25rem 5.5rem;
+        max-width: 96%;
+        padding: 1.15rem 2rem 5.5rem;
     }}
 
     h1, h2, h3, h4, h5, h6, p, label, span {{
@@ -411,6 +411,28 @@ st.markdown(
         box-shadow: var(--shadow) !important;
     }}
 
+    /* Fix chat message text overflow and word wrapping */
+    [data-testid="stChatMessage"] {{
+        max-width: 100% !important;
+        overflow-wrap: break-word !important;
+        word-wrap: break-word !important;
+        word-break: break-word !important;
+    }}
+    [data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] {{
+        max-width: 100% !important;
+        overflow-wrap: break-word !important;
+        word-wrap: break-word !important;
+        word-break: break-word !important;
+    }}
+    [data-testid="stChatMessage"] p,
+    [data-testid="stChatMessage"] li,
+    [data-testid="stChatMessage"] span {{
+        overflow-wrap: break-word !important;
+        word-wrap: break-word !important;
+        word-break: break-word !important;
+        white-space: normal !important;
+    }}
+
     [data-testid="stFileUploader"] {{
         padding: 1.25rem;
         background: rgba(30, 41, 59, 0.3) !important;
@@ -515,8 +537,11 @@ st.markdown(
         padding: 1.2rem !important;
         color: var(--ink) !important;
         white-space: pre-wrap;
-        overflow-wrap: anywhere;
+        overflow-wrap: break-word;
+        word-wrap: break-word;
+        word-break: break-word;
         line-height: 1.6;
+        max-width: 100%;
     }}
 
     pre, code {{
@@ -532,7 +557,7 @@ st.markdown(
         border-radius: 12px !important;
         padding: 0.75rem !important;
         box-shadow: var(--shadow) !important;
-        height: 480px !important;
+        min-height: 420px;
     }}
 
     /* Table Styling for Markdown Outputs */
