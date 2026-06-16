@@ -3,7 +3,6 @@ import pandas as pd
 from typing import List, Dict, Any, Optional
 from orchestrator.graph import invoke_fast_workflow
 from services.pdf_service import PDFService
-from services.presentation_service import PresentationService
 
 class AnalysisSession:
     """
@@ -200,33 +199,4 @@ class AnalysisSession:
         )
         return output_path
 
-    def export_presentation(self, output_path: str = None, chart_items: list = None) -> str:
-        """
-        Builds and saves a PowerPoint presentation.
-        """
-        if not self.latest_result:
-            raise ValueError("No analysis result found. Please run analyze() first.")
-        if not output_path:
-            clean_name = "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in self.file_name).strip("_") or "AI_Report"
-            output_path = f"outputs/{clean_name}_presentation.pptx"
 
-        if not self.profile or not self.quality_report:
-            from agents.data_quality_agent import DataQualityAgent
-            from agents.profiling_agent import ProfilingAgent
-            if not self.quality_report:
-                self.quality_report = DataQualityAgent().run(self.df)
-            if not self.profile:
-                self.profile = ProfilingAgent().run(self.df)
-
-        presentation_service = PresentationService()
-        presentation_service.create_report(
-            file_name=self.file_name,
-            profile=self.profile,
-            quality_report=self.quality_report,
-            analysis_result=self.latest_result.get("analysis_result", {}),
-            insights=self.latest_result.get("insights", ""),
-            recommendations=self.latest_result.get("recommendations", ""),
-            chart_items=chart_items,
-            output_path=output_path
-        )
-        return output_path

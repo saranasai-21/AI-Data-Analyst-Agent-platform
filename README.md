@@ -12,8 +12,7 @@ pinned: false
 
 # 📊 AI Data Analyst Agent
 
-An advanced, autonomous multi-agent data analytics and reporting system developed using **Google Gemini, LangGraph, and Streamlit**.
-This project profiles datasets, performs data quality checks, executes pandas code dynamically in a secure sandbox, renders interactive plotly visualizations, and generates professional PDF/PowerPoint reports based on natural language queries.
+This project profiles datasets, performs data quality checks, executes pandas code dynamically in a secure sandbox, renders interactive plotly visualizations, and generates professional PDF reports based on natural language queries.
 
 # 📌 Project Overview
 
@@ -26,7 +25,7 @@ Automated data analysis and insight generation is critical for:
 - Generating structured executive business reports
 - Democratizing data access via natural language interfaces
 
-This project uses a **LangGraph-based multi-agent orchestration workflow** to analyze datasets, write/execute Python code, extract insights, and format findings into PDFs/PowerPoints.
+This project uses a **LangGraph-based multi-agent orchestration workflow** to analyze datasets, write/execute Python code, extract insights, and format findings into PDFs.
 
 # 🤖 Multi-Agent Architecture
 
@@ -47,7 +46,7 @@ The system was built with the following features:
 - **Multi-format Input Ingestion**: Supports CSV, Excel, JSON, SQLite, and PDF files (via Gemini table parsing).
 - **AST-based Safe Evaluation Sandbox**: The code evaluation engine checks the syntax tree using `ast` parser before execution, prohibiting forbidden commands (`exec`, `eval`, `open`, etc.) or module imports (`os`, `sys`, `subprocess`, etc.) to prevent shell escapes or data exposure.
 - **Programmatic Python SDK**: Fully decoupled `sdk/` package allows importing and running sessions directly in Python scripts and Jupyter notebooks.
-- **Auto-generated Business Documents**: Automatically builds and exports PDF reports (via ReportLab) and PowerPoint presentations (via python-pptx).
+- **Auto-generated Business Documents**: Automatically builds and exports PDF reports (via ReportLab).
 
 # 📈 System Workflow & Pipeline
 
@@ -66,7 +65,7 @@ The system was built with the following features:
 - The multi-agent architecture operates on a LangGraph state graph.
 - The parallelized fast-track workflow uses ThreadPoolExecutor to run Data Quality + Profiling and Analysis + Visualization in parallel, speeding up end-to-end execution.
 - The safe executor intercepts and parses code using python's AST parser to prevent execution of unauthorized system commands.
-- Report builders convert plotly charts and structured text directly to PDF and slide formats.
+- Report builders convert plotly charts and structured text directly to PDF format.
 
 # Technologies Used
 
@@ -77,7 +76,6 @@ The system was built with the following features:
 - Pandas & NumPy (Data manipulation)
 - Plotly (Data visualization)
 - ReportLab (PDF generator)
-- python-pptx (PowerPoint presentation generator)
 - SQLAlchemy (SQLite database connection)
 - python-dotenv
 
@@ -89,7 +87,7 @@ The Streamlit dashboard allows users to:
 - Explore profile summaries and quality report tabs
 - Chat with agents using natural language
 - View executed python code, plotly charts, and insights
-- Download generated PDF reports and PPT presentations
+- Download generated PDF reports
 - Inspect agent execution traces and latency metrics
 
 ## Run the Project
@@ -153,8 +151,7 @@ AI-Data-Analyst-Agent/
 │   └── session.py
 │
 ├── services/                   # Export and document services
-│   ├── pdf_service.py          # PDF report generator
-│   └── presentation_service.py # PPTX slide generator
+│   └── pdf_service.py          # PDF report generator
 │
 ├── app.py                      # Streamlit application entry point
 ├── requirements.txt            # Python dependencies

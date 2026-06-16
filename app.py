@@ -36,7 +36,6 @@ except ImportError:
 
     def invoke_fast_workflow(state):
         return graph.invoke(state)
-from services.presentation_service import PresentationService
 from services.pdf_service import PDFService
 
 os.makedirs("outputs", exist_ok=True)
@@ -994,7 +993,7 @@ def save_chart(fig, path):
         if not st.session_state.get("chart_export_warning"):
             st.warning(
                 "Interactive charts are available, but static chart export failed. "
-                f"PPT charts may be skipped until Kaleido can render images. Details: {exc}"
+                f"Details: {exc}"
             )
             st.session_state.chart_export_warning = True
         return None
@@ -1466,158 +1465,63 @@ def run_agent_workflow(query, df):
     insights = result.get("insights")
     ar = format_agent_value(analysis_res)
     ir = format_agent_value(insights)
-    if ar is not None and ar != [] and ar != "None" and str(ar).strip():
-        try:
-            from core.gemini_service import generate_text
-            from core.config import GEMINI_API_KEY
-            import datetime
-            file_name = StateManager.get_file_name() or "the uploaded dataset"
-            current_date = datetime.datetime.now().strftime("%Y-%m-%d")
+    try:
+        from core.gemini_service import generate_text
+        from core.config import GEMINI_API_KEY
+        import datetime
+        file_name = StateManager.get_file_name() or "the uploaded dataset"
+        current_date = datetime.datetime.now().strftime("%Y-%m-%d")
+        
+        profile = result.get("profile", {})
+        quality = result.get("quality_report", {})
+        
+        # Safely calculate missing values
+        missing_dict = quality.get("missing_values", {})
+        if isinstance(missing_dict, dict):
+            missing_values = sum(missing_dict.values())
+        elif isinstance(missing_dict, (int, float)):
+            missing_values = int(missing_dict)
+        else:
+            missing_values = 0
             
-            profile = result.get("profile", {})
-            quality = result.get("quality_report", {})
-            
-            # Safely calculate missing values
-            missing_dict = quality.get("missing_values", {})
-            if isinstance(missing_dict, dict):
-                missing_values = sum(missing_dict.values())
-            elif isinstance(missing_dict, (int, float)):
-                missing_values = int(missing_dict)
-            else:
-                missing_values = 0
-                
-            outliers = quality.get("outliers", {})
-            outlier_total = sum(outliers.values()) if isinstance(outliers, dict) else 0
+        outliers = quality.get("outliers", {})
+        outlier_total = sum(outliers.values()) if isinstance(outliers, dict) else 0
 
-            data_health_context = (
-                f"Rows: {profile.get('rows', 'N/A')}, "
-                f"Columns: {profile.get('columns', 'N/A')}, "
-                f"Missing Values: {missing_values}, "
-                f"Duplicate Rows: {profile.get('duplicates', 'N/A')}, "
-                f"Outliers: {outlier_total}, "
-                f"High Cardinality Columns: {len(quality.get('high_cardinality', {}))}"
-            )
+        data_health_context = (
+            f"Rows: {profile.get('rows', 'N/A')}, "
+            f"Columns: {profile.get('columns', 'N/A')}, "
+            f"Missing Values: {missing_values}, "
+            f"Duplicate Rows: {profile.get('duplicates', 'N/A')}, "
+            f"Outliers: {outlier_total}, "
+            f"High Cardinality Columns: {len(quality.get('high_cardinality', {}))}"
+        )
 
-            prompt = (
-                f"You are a Senior Data Analyst and Business Intelligence Consultant.\n"
-                f"Your job is NOT to describe the dataset.\n"
-                f"Your job is to transform data into a clean executive report with:\n"
-                f"* concise insights\n"
-                f"* strong visual hierarchy\n"
-                f"* business recommendations\n"
-                f"* presentation-ready structure\n\n"
-                f"Output must always prioritize readability over completeness.\n\n"
-                f"--- \n"
-                f"## PRIMARY OBJECTIVE\n"
-                f"Generate a professional report using:\n"
-                f"Observation -> Evidence -> Business Impact -> Recommendation\n"
-                f"Do NOT generate long paragraphs.\n"
-                f"Do NOT repeat insights.\n"
-                f"Do NOT create filler recommendations.\n\n"
-                f"--- \n"
-                f"# OUTPUT FORMAT\n"
-                f"Return ONLY structured markdown.\n"
-                f"Maximum report length: 8 sections, <= 1200 words\n\n"
-                f"--- \n"
-                f"# SECTION 1 — TITLE\n"
-                f"# 📊 REPORT TITLE\n"
-                f"Dataset: {file_name}\n"
-                f"Date: {current_date}\n"
-                f"Generated By: AI Data Analyst\n"
-                f"One-line objective answering the user query: '{query}'\n\n"
-                f"--- \n"
-                f"# SECTION 2 — EXECUTIVE SUMMARY\n"
-                f"Generate exactly:\n"
-                f"## Executive Summary\n"
-                f"### Key Metrics\n"
-                f"Display only 4-6 KPI cards (as a markdown table):\n"
-                f"| Metric | Value |\n"
-                f"| ------ | ----- |\n"
-                f"|        |       |\n"
-                f"### Top Findings\n"
-                f"(3 bullets maximum)\n"
-                f"### Business Impact\n"
-                f"(2 bullets maximum)\n"
-                f"Rules: No paragraphs. Maximum 60 words.\n\n"
-                f"--- \n"
-                f"# SECTION 3 — DATASET HEALTH\n"
-                f"## Data Quality\n"
-                f"Display as a table using this context: {data_health_context}\n"
-                f"| Category | Result | Status |\n"
-                f"| -------- | ------ | ------ |\n"
-                f"Categories: Rows, Columns, Missing Values, Duplicate Rows, Outliers, Cardinality\n"
-                f"Then:\n"
-                f"### Quality Assessment\n"
-                f"Generate: 🟢 Healthy, 🟡 Review Required, or 🔴 Critical\n"
-                f"Explain in <=50 words.\n\n"
-                f"--- \n"
-                f"# SECTION 4 — KEY INSIGHTS\n"
-                f"Generate EXACTLY 3-5 insights based on the analysis.\n"
-                f"Format:\n"
-                f"## Insight N\n"
-                f"### Observation\n"
-                f"(one sentence)\n"
-                f"### Evidence\n"
-                f"(numbers only)\n"
-                f"### Business Impact\n"
-                f"(<=2 bullets)\n"
-                f"### Recommended Action\n"
-                f"(one action only)\n"
-                f"Rules: No repeated insights, No generic statements, Every insight must contain evidence\n\n"
-                f"--- \n"
-                f"# SECTION 5 — VISUAL ANALYSIS\n"
-                f"Maximum 4 charts.\n"
-                f"For each chart:\n"
-                f"### Chart Name\n"
-                f"Purpose: Why this chart matters\n"
-                f"Key Takeaway: Single sentence\n"
-                f"Allowed: Distribution, Trend, Correlation, Segment Comparison\n"
-                f"Do not describe chart visuals.\n\n"
-                f"--- \n"
-                f"# SECTION 6 — PRIORITIZED RECOMMENDATIONS\n"
-                f"Generate ONLY:\n"
-                f"Immediate Actions (max 3)\n"
-                f"Strategic Actions (max 3)\n"
-                f"Format:\n"
-                f"| Priority | Action | Expected Outcome |\n"
-                f"| -------- | ------ | ---------------- |\n"
-                f"Rules: Rank by Impact x Confidence x Ease, Remove duplicates, No generic advice\n\n"
-                f"--- \n"
-                f"# SECTION 7 — RISKS & OPPORTUNITIES\n"
-                f"Generate:\n"
-                f"### Risks\n"
-                f"(max 3)\n"
-                f"### Opportunities\n"
-                f"(max 3)\n"
-                f"Each: Issue, Impact, Mitigation\n\n"
-                f"--- \n"
-                f"# SECTION 8 — NEXT STEPS\n"
-                f"Generate: This Week, This Month, Next Quarter\n"
-                f"Maximum 3 bullets.\n\n"
-                f"--- \n"
-                f"# WRITING RULES\n"
-                f"STRICTLY:\n"
-                f"❌ No repeated sections\n"
-                f"❌ No 'Insights Continued'\n"
-                f"❌ No 'Recommendations Continued'\n"
-                f"❌ No walls of text\n"
-                f"❌ No more than 5 bullets per section\n"
-                f"❌ No empty commentary\n"
-                f"Always: Compress insights, Prefer tables, Prioritize business relevance, Executive tone, Presentation-ready layout\n\n"
-                f"--- \n"
-                f"Here is the data context for your report:\n"
-                f"The user asked: '{query}'.\n"
-                f"File analyzed: {file_name}\n"
-                f"The computed raw data result: {ar}\n\n"
-                f"The generated comprehensive dataset insights:\n{ir}\n"
-            )
-            assistant_reply = generate_text(GEMINI_API_KEY, prompt, max_output_tokens=4096)
-        except Exception:
+        if not GEMINI_API_KEY:
+            raise ValueError("GEMINI_API_KEY is not configured.")
+
+        prompt = (
+            f"You are a helpful and expert AI Data Analyst. Your task is to directly, clearly, and fully answer the user's question.\n\n"
+            f"User Question: '{query}'\n\n"
+            f"Below is the data context, computed results, and insights obtained by analyzing the dataset:\n"
+            f"- Dataset Name: {file_name}\n"
+            f"- Date: {current_date}\n"
+            f"- Data Health Status: {data_health_context}\n"
+            f"- Computed Raw Data Result: {ar}\n"
+            f"- Analysis Insights: {ir}\n"
+            f"- Analysis Recommendations: {format_agent_value(result.get('recommendations'))}\n\n"
+            f"Instructions:\n"
+            f"1. Directly, fully, and clearly answer the user's question using the provided computed results, insights, and health status. Be specific and reference exact numbers or values from the computed results where appropriate.\n"
+            f"2. Keep the answer structured, clean, and easy to read. Use Markdown, tables, or lists where helpful. Avoid generating a generic multi-section report unless the user's query specifically asked for a full report.\n"
+            f"3. Do not include any filler text, introductory pleasantries, or generic summaries. Start answering the question directly.\n"
+        )
+        assistant_reply = generate_text(GEMINI_API_KEY, prompt, max_output_tokens=4096)
+    except Exception as exc:
+        if ar is not None and ar != [] and ar != "None" and str(ar).strip():
             assistant_reply = f"Here is the result of your query:\n\n```text\n{ar}\n```"
-    elif ir is not None and ir != [] and ir != "None" and str(ir).strip():
-        assistant_reply = "Analysis complete. I've updated the Insights and Recommendations sections with new findings based on your query."
-    else:
-        assistant_reply = "Analysis complete."
+        elif ir is not None and ir != [] and ir != "None" and str(ir).strip():
+            assistant_reply = f"Analysis complete. Insights generated:\n\n{ir}"
+        else:
+            assistant_reply = f"Analysis complete. (Error during detailed response: {exc})"
 
     conv = StateManager.get_conversation()
     conv.append({"role": "assistant", "content": str(assistant_reply)})
@@ -1702,7 +1606,7 @@ def render_upload():
         with c1:
             render_status("Ingestion Formats", "CSV, Excel, JSON, PDF", "Full schema parsing and structure extraction.")
         with c2:
-            render_status("Output Targets", "PPTX, PDF Reports", "Auto-layout mapping and design presentation exports.")
+            render_status("Output Targets", "PDF Reports", "Auto-layout mapping and design document exports.")
 
         # Premium custom HTML card layout for the agent status / instructions
         st.markdown(
@@ -1724,10 +1628,7 @@ def render_upload():
             <strong style="color: var(--ink); font-size: 0.95rem; display: block;">Multi-Agent AI Workspace</strong>
             <span style="color: var(--muted); font-size: 0.84rem; display: block; margin-top: 2px;">Processes high-level business queries and extracts recommendations via LLMs.</span>
         </li>
-        <li style="border-left: 3px solid #6d4aff; padding-left: 12px; margin-bottom: 0;">
-            <strong style="color: var(--ink); font-size: 0.95rem; display: block;">Presentation Exporter</strong>
-            <span style="color: var(--muted); font-size: 0.84rem; display: block; margin-top: 2px;">Maps your interactive editor design to native PowerPoint slides shape-by-shape.</span>
-        </li>
+
     </ul>
 </div>
 """,
@@ -1818,38 +1719,14 @@ def render_visual_lab(charts):
 """,
             unsafe_allow_html=True,
         )
-        return []
+        return
 
-    lookup = chart_lookup(charts)
-    chart_keys = [chart.key for chart in charts if chart.path]
-    default_keys = chart_keys[: min(6, len(chart_keys))]
-    saved_keys = [key for key in st.session_state.selected_chart_keys if key in chart_keys]
-
-    if not saved_keys and default_keys:
-        st.session_state.selected_chart_keys = default_keys
-
-    top, controls = st.columns([1, 0.9], gap="large")
-
-    with top:
-        st.markdown('<div class="section-label">Priority Visuals</div>', unsafe_allow_html=True)
-        render_status(
-            "Generated charts",
-            format_number(len(charts)),
-            "Ranked by quality, trend, segment, and relationship value.",
-        )
-
-    with controls:
-        st.markdown('<div class="section-label">Report Visuals</div>', unsafe_allow_html=True)
-        if chart_keys:
-            selected = st.multiselect(
-                "Charts for PPT",
-                chart_keys,
-                format_func=lambda key: lookup[key].title,
-                key="selected_chart_keys",
-            )
-        else:
-            selected = []
-            st.info("Static chart export is unavailable, so no charts can be added to the PPT yet.")
+    st.markdown('<div class="section-label">Priority Visuals</div>', unsafe_allow_html=True)
+    render_status(
+        "Generated charts",
+        format_number(len(charts)),
+        "Ranked by quality, trend, segment, and relationship value.",
+    )
 
     st.divider()
 
@@ -1885,8 +1762,6 @@ def render_visual_lab(charts):
                 use_container_width=True,
                 config={"displaylogo": False, "responsive": True},
             )
-
-    return selected
 
 
 def render_ai_workspace(df):
@@ -1994,33 +1869,13 @@ def get_image_base64(path):
 
 def render_report(df, charts, profile, quality_report):
     import os
-    lookup = chart_lookup(charts)
-    selected_keys = [key for key in st.session_state.selected_chart_keys if key in lookup]
-    selected_charts = [lookup[key] for key in selected_keys if lookup[key].path]
-
     st.markdown('<div class="section-label">Report Builder</div>', unsafe_allow_html=True)
 
-    r1, r2, r3 = st.columns(3)
+    r1, r2 = st.columns(2)
     with r1:
-        render_status("Selected visuals", format_number(len(selected_charts)), "Charts included in PPT export.")
-    with r2:
         render_status("AI result", "Ready" if st.session_state.get("latest_result") else "Pending", "Analysis text is added when available.")
-    with r3:
-        render_status("Export file", "PPTX", "Generated in the outputs folder.")
-
-    if selected_charts:
-        st.dataframe(
-            pd.DataFrame(
-                {
-                    "Chart": [chart.title for chart in selected_charts],
-                    "Group": [chart.group for chart in selected_charts],
-                }
-            ),
-            use_container_width=True,
-            hide_index=True,
-        )
-    else:
-        st.info("Select at least one exported chart in Visual Lab to add visuals to the PPT.")
+    with r2:
+        render_status("Export file", "PDF", "Generated in the outputs folder.")
 
     latest = st.session_state.get("latest_result") or {}
     report_profile = latest.get("profile") or profile
@@ -2029,295 +1884,21 @@ def render_report(df, charts, profile, quality_report):
     recommendations = latest.get("recommendations", "No AI recommendations generated yet.")
     analysis_result = latest.get("analysis_result", {"result": "No AI analysis generated yet."})
 
-    col_btn_edit, col_btn_pdf = st.columns(2)
-    with col_btn_edit:
-        if st.button("Generate Presentation", type="primary", use_container_width=True):
-            from core.gemini_service import generate_text
-            from core.config import GEMINI_API_KEY
-            import json
-            import re
-            
-            with st.spinner("Analyzing data and generating slide layouts..."):
-                # Format a list of selected charts for the AI
-                selected_charts_info = ""
-                if selected_charts:
-                    selected_charts_info = "\nAvailable Selected Charts (you should include these in 'visual_analysis' layouts using type='image' and src set to the exact Chart Key):\n"
-                    for chart in selected_charts:
-                        selected_charts_info += f"- Chart Key: '{chart.key}' (Title: '{chart.title}', Caption: '{chart.caption}')\n"
-                else:
-                    selected_charts_info = "\nNo custom charts have been selected by the user yet.\n"
+    if st.button("Build PDF Report", type="primary", use_container_width=True):
+        pdf_svc = PDFService()
+        output_name = safe_filename(StateManager.get_file_name() or "AI_Report")
+        pdf_path = pdf_svc.create_report(
+            file_name=StateManager.get_file_name() or "dataset",
+            profile=report_profile,
+            quality_report=report_quality,
+            analysis_result=analysis_result,
+            insights=insights,
+            recommendations=recommendations,
+            output_path=f"outputs/{output_name}.pdf",
+        )
+        st.session_state.pdf_report_path = pdf_path
+        st.success("PDF report built successfully.")
 
-                prompt = (
-                    "You are a Presentation Layout Engine.\n"
-                    "Transform the analysis insights, recommendations, and available charts into a JSON presentation state.\n"
-                    "Output ONLY valid JSON matching this schema:\n"
-                    "{\n"
-                    "  \"slides\": [\n"
-                    "    {\n"
-                    "      \"id\": \"slide_1\",\n"
-                    "      \"layout\": \"title_slide\",\n"
-                    "      \"title\": \"Slide Title\",\n"
-                    "      \"elements\": [\n"
-                    "        {\n"
-                    "          \"type\": \"title\",\n"
-                    "          \"text\": \"Title Text\",\n"
-                    "          \"x\": 100, \"y\": 250, \"w\": 1000, \"h\": 150,\n"
-                    "          \"fontSize\": 54, \"fill\": \"#1e293b\"\n"
-                    "        },\n"
-                    "        {\n"
-                    "          \"type\": \"text\",\n"
-                    "          \"text\": \"Regular text paragraph\",\n"
-                    "          \"x\": 100, \"y\": 420, \"w\": 1000, \"h\": 200,\n"
-                    "          \"fontSize\": 24, \"fill\": \"#64748b\"\n"
-                    "        },\n"
-                    "        {\n"
-                    "          \"type\": \"bullets\",\n"
-                    "          \"items\": [\"Bullet point 1\", \"Bullet point 2\"],\n"
-                    "          \"x\": 100, \"y\": 220, \"w\": 1400, \"h\": 500,\n"
-                    "          \"fontSize\": 26, \"fill\": \"#475569\"\n"
-                    "        },\n"
-                    "        {\n"
-                    "          \"type\": \"image\",\n"
-                    "          \"src\": \"Chart Key (e.g. missing_values)\",\n"
-                    "          \"x\": 650, \"y\": 200, \"w\": 850, \"h\": 550\n"
-                    "        }\n"
-                    "      ]\n"
-                    "    }\n"
-                    "  ]\n"
-                    "}\n\n"
-                    "Guidelines for Layouts and Element Placement:\n"
-                    "- Coordinate space is 1600 width x 900 height.\n"
-                    "- 'title_slide': Use type='title' (centered or left, e.g. x:100, y:200, w:1000, h:150) and type='text' for subtitle.\n"
-                    "- 'bullet_points': Include a slide title (type='title', x:100, y:80, w:1400, h:100, fontSize: 44) and bullet points (type='bullets', x:100, y:200, w:1400, h:600, fontSize: 28).\n"
-                    "- 'visual_analysis': Include a slide title (type='title'), a descriptive text block (type='text', x:100, y:200, w:500, h:600, fontSize: 24), and an image element displaying the chart (type='image', src='<Chart Key>', x:650, y:200, w:850, h:550).\n"
-                    f"{selected_charts_info}\n"
-                    f"Insights: {insights}\n"
-                    f"Recommendations: {recommendations}\n"
-                )
-                try:
-                    if not GEMINI_API_KEY:
-                        raise ValueError("No Gemini API key configured")
-                    json_str = generate_text(GEMINI_API_KEY, prompt, max_output_tokens=4096, response_mime_type="application/json")
-                    clean_str = json_str.strip()
-                    # Safe markdown block stripper
-                    if "```" in clean_str:
-                        match = re.search(r'```(?:json)?\s*\n?(.*?)\n?\s*```', clean_str, re.DOTALL | re.IGNORECASE)
-                        if match:
-                            clean_str = match.group(1).strip()
-                    # Braces fallback selector
-                    if not (clean_str.startswith("{") and clean_str.endswith("}")):
-                        first_brace = clean_str.find('{')
-                        last_brace = clean_str.rfind('}')
-                        if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
-                            clean_str = clean_str[first_brace:last_brace + 1].strip()
-                    st.session_state.presentation_state = json.loads(clean_str)
-                    st.success("Presentation generated! Review and edit the slides below.")
-                except Exception as e:
-                    st.warning(f"Using default slide template because AI generation failed: {e}")
-                    
-                    fallback_slides = [
-                        {
-                            "id": "slide_1",
-                            "editable": True,
-                            "layout": "title_slide",
-                            "title": "Executive Data Analytics Report",
-                            "elements": [
-                                {
-                                    "type": "title",
-                                    "text": "Executive Data Analytics Report",
-                                    "x": 100,
-                                    "y": 250,
-                                    "w": 1000,
-                                    "h": 150,
-                                    "fontSize": 54,
-                                    "fill": "#1e293b"
-                                },
-                                {
-                                    "type": "text",
-                                    "text": f"Dataset: {StateManager.get_file_name() or 'Active Dataset'}\nGenerated automatically. Double click any text block to edit and format.",
-                                    "x": 100,
-                                    "y": 420,
-                                    "w": 1000,
-                                    "h": 200,
-                                    "fontSize": 24,
-                                    "fill": "#64748b"
-                                }
-                            ]
-                        },
-                        {
-                            "id": "slide_2",
-                            "editable": True,
-                            "layout": "bullet_points",
-                            "title": "Key Recommendations",
-                            "elements": [
-                                {
-                                    "type": "title",
-                                    "text": "Key Recommendations",
-                                    "x": 100,
-                                    "y": 80,
-                                    "w": 1400,
-                                    "h": 100,
-                                    "fontSize": 44,
-                                    "fill": "#1e293b"
-                                },
-                                {
-                                    "type": "bullets",
-                                    "items": [
-                                        "Improve completeness of critical columns by imputation.",
-                                        "Track anomalies in key financial metrics.",
-                                        "Establish standard pipelines for data ingestion."
-                                    ],
-                                    "x": 100,
-                                    "y": 220,
-                                    "w": 1400,
-                                    "h": 500,
-                                    "fontSize": 26,
-                                    "fill": "#475569"
-                                }
-                            ]
-                        }
-                    ]
-                    
-                    # Append visual analysis slides for each selected chart
-                    for idx, chart in enumerate(selected_charts):
-                        fallback_slides.append({
-                            "id": f"slide_chart_{idx}",
-                            "editable": True,
-                            "layout": "visual_analysis",
-                            "title": chart.title,
-                            "elements": [
-                                {
-                                    "type": "title",
-                                    "text": chart.title,
-                                    "x": 100,
-                                    "y": 80,
-                                    "w": 1400,
-                                    "h": 100,
-                                    "fontSize": 44,
-                                    "fill": "#1e293b"
-                                },
-                                {
-                                    "type": "text",
-                                    "text": f"Analysis Purpose:\n{chart.caption}\n\nThis visual highlights the key distribution and patterns identified in the dataset.",
-                                    "x": 100,
-                                    "y": 200,
-                                    "w": 500,
-                                    "h": 550,
-                                    "fontSize": 24,
-                                    "fill": "#334155"
-                                },
-                                {
-                                    "type": "image",
-                                    "src": chart.key,
-                                    "x": 650,
-                                    "y": 200,
-                                    "w": 850,
-                                    "h": 550
-                                }
-                            ]
-                        })
-                        
-                    st.session_state.presentation_state = {"slides": fallback_slides}
-                    st.success("Default presentation template loaded! Review and edit the slides below.")
-
-    with col_btn_pdf:
-        if st.button("Build PDF Report", use_container_width=True):
-            pdf_svc = PDFService()
-            output_name = safe_filename(StateManager.get_file_name() or "AI_Report")
-            pdf_path = pdf_svc.create_report(
-                file_name=StateManager.get_file_name() or "dataset",
-                profile=report_profile,
-                quality_report=report_quality,
-                analysis_result=analysis_result,
-                insights=insights,
-                recommendations=recommendations,
-                output_path=f"outputs/{output_name}.pdf",
-            )
-            st.session_state.pdf_report_path = pdf_path
-            st.success("PDF report built.")
-
-    # Editable UI
-    if "presentation_state" in st.session_state and st.session_state.presentation_state:
-        st.divider()
-        st.markdown("### 📝 Interactive Slide Editor")
-        st.caption("Drag, resize, edit text, or add elements on the Canva-style canvas below.")
-        
-        state = st.session_state.presentation_state
-        
-        # Preprocess slides state to convert chart keys to base64 images
-        import copy
-        processed_state = copy.deepcopy(state)
-        charts_lookup = {chart.key: chart for chart in charts}
-        
-        for slide in processed_state.get("slides", []):
-            for elem in slide.get("elements", []):
-                if elem.get("type") == "image":
-                    src = elem.get("src", "")
-                    if src in charts_lookup:
-                        chart_spec = charts_lookup[src]
-                        if chart_spec.path and os.path.exists(chart_spec.path):
-                            elem["chart_key"] = src
-                            elem["src"] = get_image_base64(chart_spec.path)
-        
-        try:
-            import sys
-            import os
-            # Ensure components package is discoverable
-            if os.path.join(os.getcwd()) not in sys.path:
-                sys.path.append(os.getcwd())
-            from components.ppt_editor import st_ppt_editor
-            
-            # The component returns the updated state whenever the canvas changes
-            updated_state = st_ppt_editor(processed_state, key="ppt_editor_component")
-            if updated_state and isinstance(updated_state, dict) and "slides" in updated_state:
-                # We update back, restoring chart_key if it's there
-                st.session_state.presentation_state = updated_state
-                state = updated_state
-                
-                # Check for actions sent by header buttons in React
-                action = updated_state.get("action")
-                if action == "download":
-                    # Clear action to prevent trigger loop
-                    st.session_state.presentation_state["action"] = None
-                    prs = PresentationService()
-                    output_name = safe_filename(StateManager.get_file_name() or "AI_Report")
-                    report_path = prs.create_report_from_state(
-                        presentation_state=updated_state,
-                        output_path=f"outputs/{output_name}.pptx"
-                    )
-                    st.session_state.report_path = report_path
-                    st.success("Custom PPT built successfully! Click download below.")
-                    st.rerun()
-                elif action == "save":
-                    st.session_state.presentation_state["action"] = None
-                    st.success("Canvas presentation state saved successfully.")
-                    st.rerun()
-        except Exception as e:
-            st.error(f"Failed to load Interactive Editor Component: {e}")
-            st.info("Ensure you have run `npm install` and `npm run build` in the `components/ppt_editor` directory.")
-                        
-        st.divider()
-        if st.button("Apply Design & Download PPT", type="primary", use_container_width=True):
-            prs = PresentationService()
-            output_name = safe_filename(StateManager.get_file_name() or "AI_Report")
-            report_path = prs.create_report_from_state(
-                presentation_state=state,
-                output_path=f"outputs/{output_name}.pptx"
-            )
-            st.session_state.report_path = report_path
-            st.success("Custom PPT built successfully!")
-            
-        report_path = st.session_state.get("report_path")
-        if report_path and os.path.exists(report_path):
-            with open(report_path, "rb") as report_file:
-                st.download_button(
-                    "⬇️ Download Final PPT",
-                    data=report_file,
-                    file_name=os.path.basename(report_path),
-                    use_container_width=True,
-                    type="primary"
-                )
-    
     pdf_report_path = st.session_state.get("pdf_report_path")
     if pdf_report_path and os.path.exists(pdf_report_path):
         with open(pdf_report_path, "rb") as pdf_file:
