@@ -97,7 +97,7 @@ def generate_text(
                 if response_mime_type:
                     config_args["response_mime_type"] = response_mime_type
 
-                if thinking_budget is not None and "gemini-2.5" in model:
+                if thinking_budget and thinking_budget > 0 and "gemini-2.5" in model:
                     config_args["thinking_config"] = types.ThinkingConfig(
                         thinking_budget=thinking_budget
                     )
