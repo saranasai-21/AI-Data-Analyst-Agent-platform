@@ -140,6 +140,58 @@ st.markdown(
         letter-spacing: 0;
     }}
 
+    /* UI ENHANCEMENTS: Premium Button Styling */
+    div[data-testid="stButton"] > button[kind="primary"] {{
+        background: linear-gradient(135deg, var(--blue) 0%, var(--teal) 100%);
+        border: none;
+        color: white;
+        font-weight: 700;
+        border-radius: 12px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(56, 189, 248, 0.4);
+    }}
+    div[data-testid="stButton"] > button[kind="primary"]:hover {{
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(56, 189, 248, 0.6);
+    }}
+    
+    div[data-testid="stButton"] > button[kind="secondary"] {{
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        background: var(--panel);
+        transition: all 0.3s ease;
+    }}
+    div[data-testid="stButton"] > button[kind="secondary"]:hover {{
+        border-color: var(--teal);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(52, 211, 153, 0.2);
+    }}
+
+    /* UI ENHANCEMENTS: Premium File Uploader */
+    div[data-testid="stFileUploader"] > section {{
+        background: rgba(30, 41, 59, 0.3);
+        border: 2px dashed var(--border);
+        border-radius: 16px;
+        transition: all 0.3s ease;
+    }}
+    div[data-testid="stFileUploader"] > section:hover {{
+        border-color: var(--teal);
+        background: rgba(45, 212, 191, 0.05);
+    }}
+
+    /* UI ENHANCEMENTS: Premium Tabs */
+    button[data-baseweb="tab"] {{
+        font-weight: 600;
+        font-size: 1.05rem;
+        padding-top: 1rem;
+        padding-bottom: 1rem;
+    }}
+    div[data-baseweb="tab-highlight"] {{
+        background-color: var(--teal);
+        height: 3px;
+        border-radius: 3px 3px 0 0;
+    }}
+
     .app-shell {{
         background: {SHELL_BG};
         border: 1px solid {SHELL_BORDER};
@@ -1640,7 +1692,6 @@ def render_upload():
             <strong style="color: var(--ink); font-size: 0.95rem; display: block;">Multi-Agent AI Workspace</strong>
             <span style="color: var(--muted); font-size: 0.84rem; display: block; margin-top: 2px;">Processes high-level business queries and extracts recommendations via LLMs.</span>
         </li>
-
     </ul>
 </div>
 """,
