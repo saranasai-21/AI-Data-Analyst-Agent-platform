@@ -24,17 +24,17 @@ for k in sorted(os.environ.keys()):
     if k.upper().startswith("GEMINI_API_KEY"):
         _add_key(os.getenv(k))
 
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 GEMINI_FALLBACK_MODELS = [
     model.strip()
     for model in os.getenv(
         "GEMINI_FALLBACK_MODELS",
-        "gemini-2.5-flash,gemini-2.5-flash-lite"
+        "gemini-2.5-pro,gemini-1.5-flash,gemini-1.5-pro"
     ).split(",")
     if model.strip()
 ]
 GEMINI_MAX_RETRIES = int(os.getenv("GEMINI_MAX_RETRIES", "2"))
-GEMINI_TIMEOUT_SECONDS = int(os.getenv("GEMINI_TIMEOUT_SECONDS", "45"))
+GEMINI_TIMEOUT_SECONDS = int(os.getenv("GEMINI_TIMEOUT_SECONDS", "30"))
 
 try:
     import streamlit as st

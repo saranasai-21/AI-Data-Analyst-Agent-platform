@@ -1,4 +1,3 @@
-
 ---
 title: AI Data Analyst
 emoji: 📊
@@ -10,162 +9,92 @@ app_file: app.py
 pinned: false
 ---
 
-# 📊 AI Data Analyst Agent
+# 🚀 Autonomous AI Data Analyst Platform
+**A High-Performance, Multi-Agent Data Analytics Engine powered by LangGraph & Google Gemini**
 
-This project profiles datasets, performs data quality checks, executes pandas code dynamically in a secure sandbox, renders interactive plotly visualizations, and generates professional PDF reports based on natural language queries.
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Hugging%20Face-blue?style=for-the-badge&logo=huggingface)](https://huggingface.co/spaces/saranasai/AI-Data-Analyst)
+[![Python](https://img.shields.io/badge/Python-3.11-blue?style=for-the-badge&logo=python)](#)
+[![LangGraph](https://img.shields.io/badge/Orchestration-LangGraph-orange?style=for-the-badge)](#)
+[![Gemini](https://img.shields.io/badge/LLM-Gemini%202.5%20Flash-green?style=for-the-badge)](#)
 
-# 📌 Project Overview
+---
 
-Automated data analysis and insight generation is critical for:
+## 🎯 Executive Summary
+The **Autonomous AI Data Analyst** is an enterprise-grade platform designed to democratize data science. By bridging natural language processing with a secure, sandboxed execution environment, it allows business stakeholders to instantly ingest raw datasets, profile anomalies, generate interactive 3D visualizations, and export comprehensive PDF reports—all within seconds.
 
-- Assessing data quality and profiling anomalies
-- Fast exploratory data analysis (EDA)
-- Creating visual representations of complex patterns
-- Accelerating business decision-making
-- Generating structured executive business reports
-- Democratizing data access via natural language interfaces
+This project demonstrates advanced architectural patterns in **Agentic AI**, securely turning raw data into strategic business value with zero coding required from the end-user.
 
-This project uses a **LangGraph-based multi-agent orchestration workflow** to analyze datasets, write/execute Python code, extract insights, and format findings into PDFs.
+---
 
-# 🤖 Multi-Agent Architecture
+## 💡 Key Capabilities
+- **🧠 Multi-Agent Orchestration**: Utilizes a directed acyclic graph (via `LangGraph`) of specialized agents (Profiling, Quality, Analysis, Visualization, Insights, and Recommendations) that divide and conquer complex analytical tasks.
+- **⚡ Ultra-Low Latency AI**: Fully optimized with **Gemini 2.5 Flash** and multithreaded workflow parallelization to deliver exhaustively detailed analysis and charts in a fraction of traditional LLM wait times.
+- **🛡️ Secure Code Sandbox**: Employs an AST (Abstract Syntax Tree) code validator to safely execute AI-generated Pandas queries dynamically while aggressively preventing system-level vulnerabilities.
+- **📈 Dynamic Visual Engine**: Automatically writes Plotly code to render interactive, multi-dimensional charts (including 3D scatter/surface plots) tailored precisely to user queries.
+- **📑 Automated PDF Reporting**: Features a headless engine (ReportLab + Kaleido Chromium) to invisibly snap UI visualizations and embed them into structured, paginated executive PDF documents.
 
-The multi-agent graph orchestrates several specialized agents:
+---
 
-- **DataQualityAgent**: Performs null checks, duplicate checks, and outlier detection.
-- **ProfilingAgent**: Summarizes columns, data types, and basic statistics.
-- **AnalysisAgent**: Formulates and executes Pandas-based queries in a secure AST evaluation sandbox.
-- **VisualizationAgent**: Automatically plots interactive figures using Plotly.
-- **InsightAgent**: Synthesizes execution results to draft bulleted analytical findings.
-- **RecommendationAgent**: Translates data insights into tactical business recommendations.
-- **MemoryAgent**: Manages session memory and history for conversational context.
+## 🏗️ Technical Architecture
 
-# 📊 Key Features & Security
+The platform architecture is built around a decoupled **Agentic State Graph**. Instead of relying on a monolithic LLM prompt, the system routes the user's dataset through a pipeline of micro-agents:
 
-The system was built with the following features:
+1. **Ingestion Layer (`DataLoader`)**: Parses CSV, Excel, SQLite, JSON, and uses Gemini Vision to extract tabular data directly from PDFs.
+2. **Quality & Profiling Agents**: Run parallel scans across the dataset to identify nulls, duplicates, outliers, and schema definitions.
+3. **Execution Layer (`AnalysisAgent` & `VisualizationAgent`)**: Translates human queries into valid Python logic. Runs the code within `SafeExecutor` to extract literal answers and interactive chart blueprints.
+4. **Synthesis Layer (`InsightAgent` & `RecommendationAgent`)**: Interprets the raw Python execution results and formulates exhaustive, deeply analytical business recommendations.
 
-- **Multi-format Input Ingestion**: Supports CSV, Excel, JSON, SQLite, and PDF files (via Gemini table parsing).
-- **AST-based Safe Evaluation Sandbox**: The code evaluation engine checks the syntax tree using `ast` parser before execution, prohibiting forbidden commands (`exec`, `eval`, `open`, etc.) or module imports (`os`, `sys`, `subprocess`, etc.) to prevent shell escapes or data exposure.
-- **Programmatic Python SDK**: Fully decoupled `sdk/` package allows importing and running sessions directly in Python scripts and Jupyter notebooks.
-- **Auto-generated Business Documents**: Automatically builds and exports PDF reports (via ReportLab).
+### 🛠️ Technology Stack
+* **AI & Orchestration**: Google Gemini 2.5, LangGraph
+* **Data Engine**: Pandas, NumPy, SQLAlchemy
+* **Visualization**: Plotly, Kaleido (Headless Export)
+* **Frontend**: Streamlit
+* **Document Generation**: ReportLab
 
-# 📈 System Workflow & Pipeline
+---
 
-| Stage | Agent / Component | Input | Output / Action |
-|---|---|---|---|
-| 1. Ingestion | `DataLoader` | Raw file (CSV/Excel/JSON/SQLite/PDF) | Cleaned pandas DataFrame |
-| 2. Quality Check | `DataQualityAgent` | DataFrame | Null value, outlier & duplicate detection |
-| 3. Profiling | `ProfilingAgent` | DataFrame | Column types, summary stats & shape |
-| 4. Code Execution | `AnalysisAgent` | Query + DataFrame | Validated and executed Python code results |
-| 5. Visualization | `VisualizationAgent` | Query + DataFrame | Dynamic and interactive Plotly chart specs |
-| 6. Insights | `InsightAgent` | Analysis Result | Key analytical and business findings |
-| 7. Recommendations | `RecommendationAgent` | Insights | Tactical business recommendations |
+## 🚀 Live Demo & Interface
 
-# Interpretation
+Experience the speed and depth of the platform live on Hugging Face:
+🔗 **[Launch the AI Data Analyst](https://huggingface.co/spaces/saranasai/AI-Data-Analyst)**
 
-- The multi-agent architecture operates on a LangGraph state graph.
-- The parallelized fast-track workflow uses ThreadPoolExecutor to run Data Quality + Profiling and Analysis + Visualization in parallel, speeding up end-to-end execution.
-- The safe executor intercepts and parses code using python's AST parser to prevent execution of unauthorized system commands.
-- Report builders convert plotly charts and structured text directly to PDF format.
+<img width="1904" height="708" alt="Platform Interface" src="https://github.com/user-attachments/assets/b1d7ce4d-0f92-4e13-9e7d-8a0d216c5d00" />
 
-# Technologies Used
+---
 
-- Python
-- LangGraph (Agentic Workflow orchestration)
-- Google Gemini API (`google-genai`)
-- Streamlit (Web interface)
-- Pandas & NumPy (Data manipulation)
-- Plotly (Data visualization)
-- ReportLab (PDF generator)
-- SQLAlchemy (SQLite database connection)
-- python-dotenv
+## 💻 Local Quick Start
 
-# 🚀 Streamlit Application
-
-The Streamlit dashboard allows users to:
-
-- Upload raw datasets in various formats
-- Explore profile summaries and quality report tabs
-- Chat with agents using natural language
-- View executed python code, plotly charts, and insights
-- Download generated PDF reports
-- Inspect agent execution traces and latency metrics
-
-## Run the Project
-
-### Local Setup
-1. Clone the repository.
-2. Initialize virtual environment and install packages:
+1. **Clone & Environment Setup**
    ```bash
+   git clone https://github.com/saranasai-21/AI-Data-Analyst-Agent-platform.git
+   cd AI-Data-Analyst-Agent-platform
    python -m venv .venv
-   source .venv/bin/activate  # Or `.venv\Scripts\activate` on Windows
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
    pip install -r requirements.txt
    ```
-3. Copy `.env.example` to `.env` and set your `GEMINI_API_KEY`:
+
+2. **Configuration**
+   Copy the `.env.example` file to `.env` and insert your Gemini API Key.
    ```bash
-   cp .env.example .env
+   GEMINI_API_KEY="your_api_key_here"
    ```
-4. Run the Streamlit application:
+
+3. **Boot the Application**
    ```bash
    streamlit run app.py
    ```
 
-### Docker Setup
-1. Build the image:
-   ```bash
-   docker build -t ai-data-analyst .
-   ```
-2. Run the container:
-   ```bash
-   docker run -p 7860:7860 -e GEMINI_API_KEY="your_api_key_here" ai-data-analyst
-   ```
+---
 
-# 📂 Project Structure
+## 📂 Codebase Structure
 
 ```text
 AI-Data-Analyst-Agent/
-│
-├── agents/                     # Specialized LangGraph Agent Definitions
-│   ├── analysis_agent.py
-│   ├── data_quality_agent.py
-│   ├── insight_agent.py
-│   ├── memory_agent.py
-│   ├── planner_agent.py
-│   ├── profiling_agent.py
-│   ├── recommendation_agent.py
-│   └── visualization_agent.py
-│
-├── core/                       # Core system logic and services
-│   ├── code_validator.py       # AST validator for safe code execution
-│   ├── config.py               # Settings and configuration
-│   ├── data_loader.py          # Data ingestion (CSV, Excel, SQLite, etc.)
-│   ├── gemini_service.py       # Wrapper for Google Gemini Client
-│   ├── safe_executor.py        # Secure sandbox execution environment
-│   └── state_manager.py        # Streamlit state manager
-│
-├── orchestrator/               # Agent orchestration & workflow definitions
-│   └── graph.py                # LangGraph state graph definitions
-│
-├── sdk/                        # Decoupled python SDK package
-│   ├── __init__.py
-│   ├── client.py
-│   └── session.py
-│
-├── services/                   # Export and document services
-│   └── pdf_service.py          # PDF report generator
-│
-├── app.py                      # Streamlit application entry point
-├── requirements.txt            # Python dependencies
-└── README.md                   # Project documentation
+├── agents/             # Specialized Micro-Agents (Profiling, Insights, Viz)
+├── core/               # System Engine (AST Sandbox, Config, LLM API wrapper)
+├── orchestrator/       # LangGraph routing and parallel ThreadPoolExecution
+├── services/           # Document processors (PDF generation & Kaleido snap)
+├── sdk/                # Python-native library for programmatic access
+├── app.py              # Main Streamlit UI deployment
+└── requirements.txt    # Frozen dependency graph
 ```
-
-Developed as a multi-agent and data analytics assistant using LangGraph and Google Gemini.
-
-# 🌐 Live Demo
-
-Hugging Face Space: https://huggingface.co/spaces/saranasai/AI-Data-Analyst
-
-# Interface
-
-<img width="1904" height="708" alt="Screenshot 2026-06-11 154256" src="https://github.com/user-attachments/assets/b1d7ce4d-0f92-4e13-9e7d-8a0d216c5d00" />
-
-
