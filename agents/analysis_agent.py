@@ -49,6 +49,7 @@ result
 
 8. Do NOT truncate or limit results using .head() or similar methods unless specifically requested by the user. Always return the full matching dataset.
 9. If a column represents numeric values but contains symbols or formats (e.g. percentages like '85%', or rates/ratios like '2 / 14'), clean the values (e.g. stripping '%', extracting numeric parts, or evaluating fractions) and convert them to numeric type using pd.to_numeric before performing aggregations like .mean().
+10. If the user query is a general question (e.g. asking for "insights", "trends", "summary", "analysis", or "recommendations" on the whole dataset), do NOT write natural language text/insights inside a Python string literal. Instead, write Python code that runs a comprehensive exploratory analysis (e.g., using df.describe(include='all'), df.corr(), or value counts of key columns) and assigns the resulting DataFrame/Series to the 'result' variable. The downstream Insight Agent will formulate the actual text insights from it.
 
 Examples:
 
@@ -81,6 +82,15 @@ Return code only.
             max_output_tokens=700,
             is_code=True,
         )
+
+        # Robustly extract code from code blocks if they exist
+        match = re.search(r"```python\s*(.*?)\s*```", text, re.DOTALL | re.IGNORECASE)
+        if match:
+            return match.group(1).strip()
+
+        match = re.search(r"```\s*(.*?)\s*```", text, re.DOTALL | re.IGNORECASE)
+        if match:
+            return match.group(1).strip()
 
         code = text.strip()
 
@@ -130,6 +140,7 @@ Return code only.
         conversation
     ):
 
+        code = ""
         try:
 
             column_context = self._build_column_context(df)
@@ -168,7 +179,7 @@ Return code only.
 
                 "success": False,
 
-                "generated_code": "",
+                "generated_code": code,
 
                 "result": str(e)
 

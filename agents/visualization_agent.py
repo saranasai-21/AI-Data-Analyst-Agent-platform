@@ -94,6 +94,15 @@ Return code only.
             is_code=True,
         )
 
+        # Robustly extract code from code blocks if they exist
+        match = re.search(r"```python\s*(.*?)\s*```", text, re.DOTALL | re.IGNORECASE)
+        if match:
+            return match.group(1).strip()
+
+        match = re.search(r"```\s*(.*?)\s*```", text, re.DOTALL | re.IGNORECASE)
+        if match:
+            return match.group(1).strip()
+
         code = text.strip()
 
         code = re.sub(
@@ -142,6 +151,7 @@ Return code only.
         conversation
     ):
 
+        code = ""
         try:
 
             column_context = self._build_column_context(df)
@@ -180,7 +190,7 @@ Return code only.
 
                 "success": False,
 
-                "generated_code": "",
+                "generated_code": code,
 
                 "figure": None,
 
