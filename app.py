@@ -1588,7 +1588,7 @@ def run_agent_workflow(query, df):
             f"- Analysis Recommendations: {format_agent_value(result.get('recommendations'))}\n\n"
             f"Instructions:\n"
             f"1. EXHAUSTIVE DETAIL REQUIRED: Provide an EXTREMELY detailed, comprehensive explanation answering the user's question. Use the provided computed results, insights, and health status. You must meticulously dissect every trend, reference exact numbers, and elaborate deeply on the implications of the data.\n"
-            f"2. Keep the answer structured, clean, and easy to read. Use Markdown, tables, or lists where helpful. Avoid generating a generic multi-section report unless the user's query specifically asked for a full report.\n"
+            f"2. Keep the answer structured, clean, and easy to read. Use clear Markdown side headings (e.g. ### Heading) to organize different points and sections, and use tables, bold text, or lists where helpful to make the sections distinct and scannable.\n"
             f"3. Ensure the explanation thoroughly addresses all facets of the query. Do not include any filler text, introductory pleasantries, or generic summaries. Start answering the question directly.\n"
         )
         assistant_reply = generate_text(GEMINI_API_KEY, prompt, max_output_tokens=4096)
