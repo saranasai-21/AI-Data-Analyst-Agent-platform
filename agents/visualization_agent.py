@@ -75,26 +75,8 @@ fig = px.bar(
 Return code only.
 """
 
-    def generate_code(
-        self,
-        query,
-        columns,
-        conversation
-    ):
-
-        text = generate_text(
-            self.api_key,
-            self._build_prompt(
-                query,
-                columns,
-                conversation,
-            ),
-            temperature=0.15,
-            max_output_tokens=900,
-            is_code=True,
-        )
-
-        # Robustly extract code from code blocks if they exist
+    def _extract_code(self, text):
+        """Robustly extract Python code from LLM response text."""
         match = re.search(r"```python\s*(.*?)\s*```", text, re.DOTALL | re.IGNORECASE)
         if match:
             return match.group(1).strip()
@@ -104,14 +86,34 @@ Return code only.
             return match.group(1).strip()
 
         code = text.strip()
+        code = re.sub(r"```python|```", "", code)
+        return code.strip()
 
-        code = re.sub(
-            r"```python|```",
-            "",
-            code
+    def generate_code(
+        self,
+        query,
+        columns,
+        conversation,
+        error_context=None,
+    ):
+        if error_context:
+            prompt = (
+                self._build_prompt(query, columns, conversation)
+                + f"\n\nYour previous code had a syntax error:\n{error_context}\n"
+                  "Fix the error and return ONLY valid, executable Plotly code. No markdown, no explanations."
+            )
+        else:
+            prompt = self._build_prompt(query, columns, conversation)
+
+        text = generate_text(
+            self.api_key,
+            prompt,
+            temperature=0.15,
+            max_output_tokens=900,
+            is_code=True,
         )
 
-        return code.strip()
+        return self._extract_code(text)
 
     def validate_code(
         self,
@@ -144,6 +146,8 @@ Return code only.
             lines.append(f"- {col} (type: {dtype}, samples: [{samples_str}])")
         return "\n".join(lines)
 
+    MAX_RETRIES = 2
+
     def run(
         self,
         query,
@@ -151,49 +155,36 @@ Return code only.
         conversation
     ):
 
+        column_context = self._build_column_context(df)
         code = ""
-        try:
+        last_error = None
 
-            column_context = self._build_column_context(df)
-            code = self.generate_code(
+        for attempt in range(1 + self.MAX_RETRIES):
+            try:
+                code = self.generate_code(
+                    query=query,
+                    columns=column_context,
+                    conversation=conversation,
+                    error_context=last_error,
+                )
 
-                query=query,
+                self.validate_code(code)
 
-                columns=column_context,
+                fig = self.execute_code(code, df)
 
-                conversation=conversation
+                return {
+                    "success": True,
+                    "generated_code": code,
+                    "figure": fig,
+                }
 
-            )
+            except Exception as e:
+                last_error = f"Code:\n{code}\n\nError: {e}"
+                if attempt == self.MAX_RETRIES:
+                    return {
+                        "success": False,
+                        "generated_code": code,
+                        "figure": None,
+                        "error": str(e),
+                    }
 
-            self.validate_code(
-                code
-            )
-
-            fig = self.execute_code(
-                code,
-                df
-            )
-
-            return {
-
-                "success": True,
-
-                "generated_code": code,
-
-                "figure": fig
-
-            }
-
-        except Exception as e:
-
-            return {
-
-                "success": False,
-
-                "generated_code": code,
-
-                "figure": None,
-
-                "error": str(e)
-
-            }
