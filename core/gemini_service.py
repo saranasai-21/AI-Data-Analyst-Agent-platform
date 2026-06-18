@@ -72,6 +72,7 @@ def generate_text(
     max_output_tokens=900,
     thinking_budget=0,
     response_mime_type=None,
+    is_code=False,
 ):
     global _active_key
     keys_to_try = list(GEMINI_API_KEYS)
@@ -91,7 +92,7 @@ def generate_text(
     last_error = None
 
     # Append instruction once before the retry loops (not inside them)
-    if isinstance(prompt, str):
+    if isinstance(prompt, str) and not is_code:
         prompt += "\n\nIMPORTANT INSTRUCTION: DO NOT include conversational greetings (e.g. 'Good morning', 'Hello') or pleasantries in your response. Output only the requested analysis or insights."
 
     for model in _model_chain():

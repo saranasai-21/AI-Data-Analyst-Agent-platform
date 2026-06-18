@@ -79,6 +79,7 @@ Return code only.
             ),
             temperature=0.1,
             max_output_tokens=700,
+            is_code=True,
         )
 
         code = text.strip()
